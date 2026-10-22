@@ -10,6 +10,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
+import numpy as np
+
 from robust_visual_perception.detector import (
     Detection,
     DetectionResult,
@@ -45,13 +47,21 @@ class Roi:
             raise ValueError("ROI needs x_min < x_max and y_min < y_max")
 
     def contains(self, det: Detection, image_hw: tuple[int, int]) -> bool:
+        box = np.array([[det.x1, det.y1, det.x2, det.y2]])
+        return bool(self.mask(box, image_hw)[0])
+
+    def mask(self, boxes_xyxy: np.ndarray, image_hw: tuple[int, int]) -> np.ndarray:
+        """Vectorised ``contains`` for N x 4 boxes (used for ground truth)."""
         height, width = image_hw
-        cx = (det.x1 + det.x2) / 2 / width
-        cy = (det.y1 + det.y2) / 2 / height
+        b = np.asarray(boxes_xyxy, float).reshape(-1, 4)
+        cx = (b[:, 0] + b[:, 2]) / 2 / width
+        cy = (b[:, 1] + b[:, 3]) / 2 / height
         return (
-            self.x_min <= cx <= self.x_max
-            and self.y_min <= cy <= self.y_max
-            and det.height >= self.min_height * height
+            (self.x_min <= cx)
+            & (cx <= self.x_max)
+            & (self.y_min <= cy)
+            & (cy <= self.y_max)
+            & (b[:, 3] - b[:, 1] >= self.min_height * height)
         )
 
 

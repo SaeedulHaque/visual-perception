@@ -160,7 +160,7 @@ Lake UHD iGPU, Wayland, Docker present, no ROS/Gazebo, system Python 3.14.4,
 - `experiment_runner.py`: orchestrates one experiment from a config file.
 
 Scripts (`scripts/`): `fetch_coco_subset.py`, `fetch_mot17.py`,
-`run_smoke_test.py`, `run_image_experiment.py`, `run_sequence_experiment.py`,
+`run_image_experiment.py` (also runs the smoke test), `run_sequence_experiment.py`,
 `plot_results.py`, `bench_latency.py` (also used on Machine B),
 `collect_env.py`.
 
@@ -221,6 +221,11 @@ Every condition uses the identical set and order of source frames.
   ~70% and ≥ 3 GT events, preferring a moving-camera sequence for
   robot-like motion. If ROI parameters give no sequence meeting this, adjust
   ROI using GT statistics only and document it.
+  *Applied in Phase 2:* the ROI above qualified one sequence. A fixed grid
+  search on GT only chose `x 0.35–0.65, y ≥ 0.30, height ≥ 0.50`
+  (procedure and table in `docs/features/mot17.md` and
+  `data/manifests/mot17_roi_search.csv`). GT events merge runs separated by
+  fewer than 5 frames.
 - Filter parameters chosen a priori: `n_on=3, k_window=5, m_off=5`. A small
   sweep (n_on/k ∈ {2/3, 3/5, 4/6, 5/8}, m_off ∈ {3, 5, 8}) runs on the
   tuning sequence only. If a different setting is adopted, it is applied
