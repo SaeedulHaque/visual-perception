@@ -1,0 +1,50 @@
+[project]
+name = "robust-visual-perception"
+version = "0.1.0"
+description = "Evaluating lightweight object detection under perceptual degradation, with temporal decision filtering."
+readme = "README.md"
+license = "AGPL-3.0-only"
+license-files = ["LICENSE"]
+authors = [{ name = "Saeedul Haque" }]
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "numpy>=2.0",
+    "opencv-python>=4.10",
+    "pyyaml>=6.0",
+    "psutil>=6.0",
+    "torch>=2.6",
+    "torchvision>=0.21",
+    "ultralytics>=8.4",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.3", "ruff>=0.8"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/robust_visual_perception"]
+
+# CPU-only PyTorch wheels: avoids several GB of CUDA libraries on a machine
+# without an NVIDIA GPU.
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+torchvision = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM"]
