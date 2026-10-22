@@ -1,0 +1,27 @@
+# MOT17 sequence experiment (design section 6.3): tuning sequence MOT17-09,
+# evaluation sequences MOT17-05 and MOT17-11 (selected from GT only, see
+# data/manifests/mot17_sequences.csv), all ten conditions, imgsz 416.
+run_name: sequence_main
+data_root: data/raw/mot17
+sequences: [MOT17-09, MOT17-05, MOT17-11]
+output_root: results
+
+model:
+  weights: models/yolo26n.pt
+  imgsz: [416]
+  conf: 0.001
+  max_det: 300
+  device: cpu
+
+decision:
+  target_class: person
+  conf_threshold: 0.5
+
+filter: {n_on: 3, k_window: 5, m_off: 5}
+
+# Corridor ROI chosen on GT only by the rule in mot17.choose_roi
+# (search table: data/manifests/mot17_roi_search.csv).
+roi: {x_min: 0.35, x_max: 0.65, y_min: 0.30, y_max: 1.0, min_height: 0.50}
+
+noise_seed: 1234
+warmup: 10
