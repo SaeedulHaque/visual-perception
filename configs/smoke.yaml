@@ -1,0 +1,22 @@
+# Smoke test: 20 COCO val2017 images (14 with people, 6 without), all ten
+# conditions, one input size. Checks the pipeline end to end; its numbers
+# are not results.
+run_name: smoke
+image_dir: data/raw/coco/val2017
+manifest: data/manifests/coco_val2017_smoke.csv
+output_root: results
+
+model:
+  weights: models/yolo26n.pt
+  imgsz: [640]
+  conf: 0.001
+  max_det: 300
+  device: cpu
+
+decision:
+  target_class: person
+  conf_threshold: 0.5
+
+noise_seed: 1234
+warmup: 10
+# conditions: omitted, so the ten default conditions are used
