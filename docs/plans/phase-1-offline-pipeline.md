@@ -264,3 +264,127 @@ Verification:
   writes `results/smoke/per_frame.csv` with 20 × 10 rows.
 
 Suggested commit: `feat(runner): add image experiment runner and smoke test`.
+
+---
+
+## Recreate Phase 1 and check it yourself
+
+These steps rebuild Phase 1 from scratch on your machine and check each
+result, not only the unit tests. They need Linux or macOS with
+[`uv`](https://docs.astral.sh/uv/), about 2 GB of disk for the environment
+and 300 MB for the COCO annotations.
+
+### 1. Get the code at the Phase 1 state
+
+```
+git clone https://github.com/SaeedulHaque/visual-perception.git
+cd visual-perception
+git checkout 005e10a          # main after Phase 1 was merged
+```
+
+To run the same steps on the latest version instead, skip the checkout and
+replace `scripts/run_smoke_test.py --config configs/smoke.yaml` below with
+`scripts/run_image_experiment.py --config configs/smoke.yaml` (the script
+was renamed in Phase 2).
+
+### 2. Environment
+
+```
+uv sync
+uv run python -c "import torch, ultralytics; print(torch.__version__, torch.cuda.is_available())"
+uv run python scripts/collect_env.py
+```
+
+Check: a torch version ending in `+cpu` (on Linux x86_64) and `False`.
+`collect_env.py` prints the record every run saves as `env.json`: CPU,
+cores, RAM, package versions, torch threads. Keep it; it describes the
+device you are benchmarking.
+
+### 3. Unit tests and lint
+
+```
+uv run pytest -v
+uv run ruff check .
+```
+
+Check: 100 tests pass at this commit (more on later versions); ruff reports
+`All checks passed!`. No model weights or network are needed.
+
+### 4. Data: same images as the reference
+
+```
+uv run python scripts/fetch_coco_subset.py --n-person 14 --n-negative 6 --name smoke
+git diff --exit-code data/manifests/coco_val2017_smoke.csv && echo "same 20 images"
+sha256sum data/raw/coco/annotations_trainval2017.zip data/raw/coco/instances_val2017.json
+ls data/raw/coco/val2017 | wc -l
+```
+
+Check:
+- `git diff` prints nothing, then `same 20 images`: the seeded selection
+  picked exactly the images in the committed manifest.
+- Both checksums equal the ones in `data/README.md`.
+- 20 image files.
+
+### 5. Smoke run with the real model
+
+```
+uv run python scripts/run_smoke_test.py --config configs/smoke.yaml
+```
+
+The first run downloads `models/yolo26n.pt` (5.5 MB). Check the output:
+
+```
+wc -l results/smoke/per_frame.csv                       # 201 = header + 20 x 10 rows
+cut -d, -f4 results/smoke/per_frame.csv | sort | uniq -c   # status column
+ls results/smoke                                        # command.txt config.yaml env.json per_frame.csv
+```
+
+- 201 lines.
+- Status is only `OK` (or `EMPTY`); no `ERROR` or `MISSING` rows.
+  (At this commit `status` is column 4; from Phase 2 on it is column 5,
+  because a `sequence` column comes first.)
+- `config.yaml` equals `configs/smoke.yaml` with defaults filled in;
+  `env.json` describes your machine.
+
+### 6. Read the results
+
+Decision vs ground truth per condition:
+
+```
+uv run python - <<'PY'
+import csv, collections
+rows = list(csv.DictReader(open("results/smoke/per_frame.csv")))
+agree = collections.Counter((r["condition"], r["baseline_state"] == r["gt_state"]) for r in rows)
+for cond in dict.fromkeys(r["condition"] for r in rows):
+    print(f"{cond:15s} agree {agree[(cond, True)]:2d} / 20")
+PY
+```
+
+Your device's detector latency at imgsz 640:
+
+```
+uv run python - <<'PY'
+import csv, statistics
+rows = list(csv.DictReader(open("results/smoke/per_frame.csv")))
+ms = [float(r["latency_ms"]) for r in rows if r["latency_ms"]]
+print(f"n={len(ms)} mean={statistics.mean(ms):.1f} ms median={statistics.median(ms):.1f} ms")
+PY
+```
+
+What to expect:
+- The agreement counts should be the same on any machine with the same
+  package versions, because the images, noise seeds and model are fixed.
+  A different CPU or torch build can change a borderline confidence and
+  flip an image now and then.
+- Latency is your device's number. 200 timed calls is a quick indication
+  only; the Phase 2 benchmark is the proper measurement.
+
+### 7. Break it on purpose (optional)
+
+```
+echo junk > data/raw/coco/val2017/000000241668.jpg
+uv run python scripts/run_smoke_test.py --config configs/smoke.yaml --overwrite
+grep 000000241668 results/smoke/per_frame.csv | head -2      # MISSING, UNKNOWN, missing_frame
+rm data/raw/coco/val2017/000000241668.jpg
+uv run python scripts/fetch_coco_subset.py --n-person 14 --n-negative 6 --name smoke   # restores it
+```
