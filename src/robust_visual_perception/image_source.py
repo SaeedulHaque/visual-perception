@@ -7,6 +7,7 @@ report it (the decision layer turns it into ``UNKNOWN``).
 
 from __future__ import annotations
 
+import time
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
@@ -34,6 +35,7 @@ class Frame:
     timestamp_s: float | None
     status: FrameStatus
     error: str | None = None
+    load_ms: float | None = None
 
 
 def load_image(path: Path) -> np.ndarray:
@@ -58,12 +60,14 @@ def iter_image_files(
     for index, path in enumerate(paths):
         path = Path(path)
         timestamp = index / fps if fps else None
+        start = time.perf_counter_ns()
         try:
             image = load_image(path)
         except ImageLoadError as exc:
             yield Frame(path.stem, None, timestamp, FrameStatus.MISSING, str(exc))
             continue
-        yield Frame(path.stem, image, timestamp, FrameStatus.OK)
+        load_ms = (time.perf_counter_ns() - start) / 1e6
+        yield Frame(path.stem, image, timestamp, FrameStatus.OK, load_ms=load_ms)
 
 
 def list_image_files(folder: Path) -> list[Path]:

@@ -1,7 +1,7 @@
 # Experiment runner and smoke test
 
 Module: `src/robust_visual_perception/experiment_runner.py`
-Script: `scripts/run_smoke_test.py`
+Script: `scripts/run_image_experiment.py` (the smoke test is this script with `configs/smoke.yaml`)
 Tests: `tests/test_experiment_runner.py`
 
 ## What the runner does
@@ -12,13 +12,19 @@ Tests: `tests/test_experiment_runner.py`
    `overwrite`) and writes `config.yaml`, `env.json`, `command.txt`.
 2. Builds the frame list: from the manifest when one is given (which also
    provides the ground-truth state), otherwise every image in `image_dir`.
-3. For each input size: builds a detector, runs `warmup` untimed calls,
-   then for every frame and every condition: degrade, detect, decide, and
-   write one row to `per_frame.csv`.
-4. Logs one summary line per (condition, imgsz).
+3. Builds one detector per input size and runs `warmup` untimed calls on
+   each, using the first readable image.
+4. Streams the frames. For every frame, every input size and every
+   condition: degrade, detect, decide (`process_frame`), and write one row
+   to `per_frame.csv`. With a manifest, all boxes are also kept for mAP
+   (`detections_<condition>_<imgsz>.npz`).
+5. Writes `resources.json` (peak memory, wall time) and logs one summary
+   line per (condition, imgsz).
 
-Each image is loaded once and degraded ten times, rather than reloaded per
-condition. The same frames in the same order are used for every condition.
+Each image is read from disk once and is not kept in memory after its rows
+are written. The same frames in the same order are used for every
+condition. `process_frame` is shared with the sequence runner, so both
+experiments make decisions in exactly the same way.
 
 `detector_factory` is a function `imgsz -> Detector`. The script passes one
 that builds `UltralyticsDetector`; the tests pass one that builds a scripted
@@ -38,7 +44,7 @@ None of these stops the run. Every case has a test.
 
 ```
 uv run python scripts/fetch_coco_subset.py --n-person 14 --n-negative 6 --name smoke
-uv run python scripts/run_smoke_test.py --config configs/smoke.yaml
+uv run python scripts/run_image_experiment.py --config configs/smoke.yaml
 ```
 
 Expected: `results/smoke/per_frame.csv` with a header and 200 rows

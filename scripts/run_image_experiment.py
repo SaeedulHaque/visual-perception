@@ -1,15 +1,16 @@
-"""Run the offline pipeline end to end on a small image set.
+"""Run an image experiment (inference only) from a config file.
 
-    uv run python scripts/run_smoke_test.py --config configs/smoke.yaml
+    uv run python scripts/run_image_experiment.py --config configs/smoke.yaml
+    uv run python scripts/run_image_experiment.py --config configs/image_experiment.yaml
 
-Needs the smoke subset first:
-
-    uv run python scripts/fetch_coco_subset.py --n-person 14 --n-negative 6 --name smoke
+Writes results/<run_name>/ with per_frame.csv and stored detections.
+Metrics come from scripts/evaluate_image_experiment.py.
 """
 
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import logging
 import shlex
 import sys
@@ -21,15 +22,21 @@ from robust_visual_perception.experiment_runner import run_image_experiment
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Offline pipeline smoke test.")
-    parser.add_argument("--config", type=Path, default=Path("configs/smoke.yaml"))
+    parser = argparse.ArgumentParser(description="Run an image experiment.")
+    parser.add_argument("--config", type=Path, required=True)
     parser.add_argument(
         "--overwrite", action="store_true", help="replace an existing run directory"
+    )
+    parser.add_argument(
+        "--run-name",
+        help="override run_name from the config (keeps committed results intact)",
     )
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(message)s")
 
     cfg = load_config(args.config)
+    if args.run_name:
+        cfg = dataclasses.replace(cfg, run_name=args.run_name)
 
     def make_detector(imgsz: int) -> UltralyticsDetector:
         return UltralyticsDetector(
