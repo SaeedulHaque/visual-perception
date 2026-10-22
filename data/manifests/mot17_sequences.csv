@@ -1,0 +1,8 @@
+name,fps,length,camera,occupancy,n_events,role,roi_x_min,roi_x_max,roi_y_min,roi_y_max,roi_min_height
+MOT17-02,30.0,600,static,0.4450,2,unused,0.35,0.65,0.3,1.0,0.5
+MOT17-04,30.0,1050,static,0.0000,0,unused,0.35,0.65,0.3,1.0,0.5
+MOT17-05,14.0,837,moving,0.5508,9,evaluation,0.35,0.65,0.3,1.0,0.5
+MOT17-09,30.0,525,static,0.3219,6,tuning,0.35,0.65,0.3,1.0,0.5
+MOT17-10,30.0,654,moving,0.0000,0,unused,0.35,0.65,0.3,1.0,0.5
+MOT17-11,30.0,900,moving,0.6356,6,evaluation,0.35,0.65,0.3,1.0,0.5
+MOT17-13,25.0,750,moving,0.0000,0,unused,0.35,0.65,0.3,1.0,0.5

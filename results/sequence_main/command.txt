@@ -1,0 +1,1 @@
+python scripts/run_sequence_experiment.py --config configs/sequence_experiment.yaml

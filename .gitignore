@@ -11,10 +11,19 @@ data/raw/
 models/*.pt
 models/*.onnx
 
-# Run outputs: only final runs referenced by the README are committed
+# Run outputs: only final runs referenced by the README are committed,
+# without the large stored-detection arrays
 results/*
 !results/README.md
+!results/image_main/
+!results/sequence_main/
+!results/sequence_faults/
+results/**/*.npz
 *.json.gz
+
+# MOT17 partial-download cache
+*.span
+*.span.part
 
 # Tooling scratch
 .superpowers/

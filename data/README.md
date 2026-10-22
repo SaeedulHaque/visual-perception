@@ -22,4 +22,16 @@ COCO annotations are licensed CC BY 4.0; images keep their Flickr licenses
 
 ## MOT17
 
-Added in Phase 2.
+```
+uv run python scripts/fetch_mot17.py
+```
+
+Reads the remote `MOT17.zip` (5.9 GB) with HTTP range requests and
+downloads only GT for the seven training sequences and the images of the
+three selected sequences (FRCNN copy), about 270 MB. Committed outputs:
+
+- `manifests/mot17_sequences.csv`: per-sequence GT statistics, role
+  (tuning / evaluation / unused) and the ROI used.
+- `manifests/mot17_roi_search.csv`: the GT-only ROI grid search.
+
+MOT17 is licensed CC BY-NC-SA 3.0 (https://motchallenge.net/data/MOT17/).

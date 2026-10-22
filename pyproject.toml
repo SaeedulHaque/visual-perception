@@ -15,6 +15,8 @@ dependencies = [
     "torch>=2.6",
     "torchvision>=0.21",
     "ultralytics>=8.4",
+    "pycocotools>=2.0.11",
+    "matplotlib>=3.11.2",
 ]
 
 [dependency-groups]

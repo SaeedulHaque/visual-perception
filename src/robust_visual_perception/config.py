@@ -6,12 +6,13 @@ loudly instead of silently running with a default.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, fields
+from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 from typing import Any
 
 import yaml
 
+from robust_visual_perception.decision import CORRIDOR_ROI, Roi
 from robust_visual_perception.degradation import (
     DEFAULT_CONDITIONS,
     DEFAULT_NOISE_SEED,
@@ -55,6 +56,37 @@ class ExperimentConfig:
     warmup: int = 10
 
 
+SEQUENCE_IMGSZ = (416,)
+
+
+@dataclass(frozen=True)
+class FaultConfig:
+    """Seeded fault injection: share of frames dropped (MISSING) or failed
+    (ERROR). The same frames are affected under every condition."""
+
+    missing_rate: float = 0.0
+    error_rate: float = 0.0
+    seed: int = 0
+
+
+@dataclass(frozen=True)
+class SequenceExperimentConfig:
+    run_name: str
+    data_root: str
+    sequences: tuple[str, ...]
+    output_root: str = "results"
+    model: ModelConfig = field(
+        default_factory=lambda: ModelConfig(imgsz=SEQUENCE_IMGSZ)
+    )
+    decision: DecisionConfig = field(default_factory=DecisionConfig)
+    filter: FilterConfig = field(default_factory=FilterConfig)
+    conditions: tuple[Condition, ...] = DEFAULT_CONDITIONS
+    roi: Roi = CORRIDOR_ROI
+    fault: FaultConfig = field(default_factory=FaultConfig)
+    noise_seed: int = DEFAULT_NOISE_SEED
+    warmup: int = 10
+
+
 def _check_keys(section: str, data: dict[str, Any], cls: type) -> None:
     allowed = {f.name for f in fields(cls)}
     unknown = set(data) - allowed
@@ -73,67 +105,82 @@ def _parse_conditions(items: list[dict[str, Any]]) -> tuple[Condition, ...]:
     return tuple(conditions)
 
 
-def config_from_dict(data: dict[str, Any]) -> ExperimentConfig:
-    _check_keys("config", data, ExperimentConfig)
-    for required in ("run_name", "image_dir"):
-        if required not in data:
-            raise ValueError(f"config is missing required key {required!r}")
-    data = dict(data)
-
-    model = dict(data.pop("model", None) or {})
+def _common_sections(
+    data: dict[str, Any], model_defaults: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    """Parse the sections shared by image and sequence configs, in place."""
+    model = {**(model_defaults or {}), **(data.pop("model", None) or {})}
     _check_keys("model", model, ModelConfig)
     if "imgsz" in model:
         model["imgsz"] = tuple(int(s) for s in model["imgsz"])
-
     decision = dict(data.pop("decision", None) or {})
     _check_keys("decision", decision, DecisionConfig)
     filt = dict(data.pop("filter", None) or {})
     _check_keys("filter", filt, FilterConfig)
-
+    parsed = {
+        "model": ModelConfig(**model),
+        "decision": DecisionConfig(**decision),
+        "filter": FilterConfig(**filt),
+    }
     conditions = data.pop("conditions", None)
     if conditions is not None:
-        data["conditions"] = _parse_conditions(conditions)
+        parsed["conditions"] = _parse_conditions(conditions)
+    return parsed
 
-    return ExperimentConfig(
-        model=ModelConfig(**model),
-        decision=DecisionConfig(**decision),
-        filter=FilterConfig(**filt),
-        **data,
-    )
+
+def _require(data: dict[str, Any], *keys: str) -> None:
+    for key in keys:
+        if key not in data:
+            raise ValueError(f"config is missing required key {key!r}")
+
+
+def config_from_dict(data: dict[str, Any]) -> ExperimentConfig:
+    _check_keys("config", data, ExperimentConfig)
+    _require(data, "run_name", "image_dir")
+    data = dict(data)
+    return ExperimentConfig(**_common_sections(data), **data)
+
+
+def sequence_config_from_dict(data: dict[str, Any]) -> SequenceExperimentConfig:
+    _check_keys("config", data, SequenceExperimentConfig)
+    _require(data, "run_name", "data_root", "sequences")
+    data = dict(data)
+    parsed = _common_sections(data, {"imgsz": SEQUENCE_IMGSZ})
+    if len(parsed["model"].imgsz) != 1:
+        raise ValueError("a sequence experiment uses exactly one imgsz")
+    data["sequences"] = tuple(data["sequences"])
+    if "roi" in data:
+        roi = dict(data.pop("roi") or {})
+        _check_keys("roi", roi, Roi)
+        parsed["roi"] = Roi(**roi)
+    if "fault" in data:
+        fault = dict(data.pop("fault") or {})
+        _check_keys("fault", fault, FaultConfig)
+        parsed["fault"] = FaultConfig(**fault)
+    return SequenceExperimentConfig(**parsed, **data)
+
+
+def _read_yaml(path: str | Path) -> dict[str, Any]:
+    with Path(path).open() as f:
+        return yaml.safe_load(f) or {}
 
 
 def load_config(path: str | Path) -> ExperimentConfig:
-    with Path(path).open() as f:
-        data = yaml.safe_load(f) or {}
-    return config_from_dict(data)
+    return config_from_dict(_read_yaml(path))
 
 
-def config_to_dict(cfg: ExperimentConfig) -> dict[str, Any]:
-    """Plain dict (lists, no tuples) that ``config_from_dict`` reads back."""
-    return {
-        "run_name": cfg.run_name,
-        "image_dir": cfg.image_dir,
-        "manifest": cfg.manifest,
-        "output_root": cfg.output_root,
-        "model": {
-            "weights": cfg.model.weights,
-            "imgsz": list(cfg.model.imgsz),
-            "conf": cfg.model.conf,
-            "max_det": cfg.model.max_det,
-            "device": cfg.model.device,
-        },
-        "decision": {
-            "target_class": cfg.decision.target_class,
-            "conf_threshold": cfg.decision.conf_threshold,
-        },
-        "filter": {
-            "n_on": cfg.filter.n_on,
-            "k_window": cfg.filter.k_window,
-            "m_off": cfg.filter.m_off,
-        },
-        "conditions": [
-            {"name": c.name, "kind": c.kind, "param": c.param} for c in cfg.conditions
-        ],
-        "noise_seed": cfg.noise_seed,
-        "warmup": cfg.warmup,
-    }
+def load_sequence_config(path: str | Path) -> SequenceExperimentConfig:
+    return sequence_config_from_dict(_read_yaml(path))
+
+
+def _plain(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {k: _plain(v) for k, v in value.items()}
+    if isinstance(value, list | tuple):
+        return [_plain(v) for v in value]
+    return value
+
+
+def config_to_dict(cfg: ExperimentConfig | SequenceExperimentConfig) -> dict[str, Any]:
+    """Plain dict (lists, no tuples) that the matching loader reads back."""
+    return _plain(asdict(cfg))

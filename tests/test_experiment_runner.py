@@ -8,6 +8,7 @@ import pytest
 from robust_visual_perception.coco_subset import SubsetImage, write_manifest
 from robust_visual_perception.config import ExperimentConfig, ModelConfig
 from robust_visual_perception.degradation import Condition
+from robust_visual_perception.detection_store import load_detections
 from robust_visual_perception.experiment_runner import run_image_experiment
 from tests.fakes import FakeDetector, person
 
@@ -145,3 +146,31 @@ def test_without_manifest_uses_folder_and_empty_gt(tmp_path):
     rows = _rows(run_dir)
     assert len(rows) == 6
     assert {r["gt_state"] for r in rows} == {""}
+
+
+def test_each_image_is_loaded_once_across_sizes(tmp_path, monkeypatch):
+    import robust_visual_perception.image_source as image_source
+
+    cfg = _setup(tmp_path)
+    cfg = ExperimentConfig(**{**cfg.__dict__, "model": ModelConfig(imgsz=(320, 416))})
+    loads = []
+    real = image_source.load_image
+    monkeypatch.setattr(
+        image_source, "load_image", lambda p: loads.append(p) or real(p)
+    )
+    run_dir = run_image_experiment(cfg, lambda imgsz: FakeDetector([[]]), "test")
+    assert len(loads) == 3
+    rows = _rows(run_dir)
+    assert len(rows) == 3 * 2 * 2
+    assert {r["imgsz"] for r in rows} == {"320", "416"}
+    assert all(r["load_ms"] and r["degrade_ms"] for r in rows)
+
+
+def test_detections_and_resources_are_saved(tmp_path):
+    cfg = _setup(tmp_path)
+    run_dir = run_image_experiment(
+        cfg, lambda imgsz: FakeDetector([[person(0.9)]]), command="test"
+    )
+    dets = load_detections(run_dir, "blur_k7", 320)
+    assert sorted(dets[:, 0].astype(int)) == [1, 2, 3]
+    assert (run_dir / "resources.json").exists()

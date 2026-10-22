@@ -1,0 +1,21 @@
+# COCO val2017 image experiment (design section 6.2): 750 images
+# (500 with people, 250 without) x 10 conditions x 3 input sizes.
+run_name: image_main
+image_dir: data/raw/coco/val2017
+manifest: data/manifests/coco_val2017_main.csv
+output_root: results
+
+model:
+  weights: models/yolo26n.pt
+  imgsz: [320, 416, 640]
+  conf: 0.001
+  max_det: 300
+  device: cpu
+
+decision:
+  target_class: person
+  conf_threshold: 0.5
+
+noise_seed: 1234
+warmup: 10
+# conditions: omitted, so the ten default conditions are used

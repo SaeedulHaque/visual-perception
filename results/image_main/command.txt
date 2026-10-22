@@ -1,0 +1,1 @@
+python scripts/run_image_experiment.py --config configs/image_experiment.yaml --overwrite

@@ -1,0 +1,24 @@
+# Quick device benchmark: the 750-image COCO subset, clean images only,
+# three input sizes (2,250 timed inferences). Compare with the reference
+# machine using scripts/compare_runs.py (clean rows of results/image_main).
+run_name: benchmark
+image_dir: data/raw/coco/val2017
+manifest: data/manifests/coco_val2017_main.csv
+output_root: results
+
+model:
+  weights: models/yolo26n.pt
+  imgsz: [320, 416, 640]
+  conf: 0.001
+  max_det: 300
+  device: cpu
+
+decision:
+  target_class: person
+  conf_threshold: 0.5
+
+conditions:
+  - {name: clean, kind: clean}
+
+noise_seed: 1234
+warmup: 10

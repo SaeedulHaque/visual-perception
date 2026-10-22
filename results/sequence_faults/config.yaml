@@ -1,0 +1,36 @@
+run_name: sequence_faults
+data_root: data/raw/mot17
+sequences:
+- MOT17-05
+- MOT17-11
+output_root: results
+model:
+  weights: models/yolo26n.pt
+  imgsz:
+  - 416
+  conf: 0.001
+  max_det: 300
+  device: cpu
+decision:
+  target_class: person
+  conf_threshold: 0.5
+filter:
+  n_on: 3
+  k_window: 5
+  m_off: 5
+conditions:
+- name: clean
+  kind: clean
+  param: null
+roi:
+  x_min: 0.35
+  x_max: 0.65
+  y_min: 0.3
+  y_max: 1.0
+  min_height: 0.5
+fault:
+  missing_rate: 0.02
+  error_rate: 0.01
+  seed: 0
+noise_seed: 1234
+warmup: 10

@@ -1,0 +1,64 @@
+run_name: sequence_main
+data_root: data/raw/mot17
+sequences:
+- MOT17-09
+- MOT17-05
+- MOT17-11
+output_root: results
+model:
+  weights: models/yolo26n.pt
+  imgsz:
+  - 416
+  conf: 0.001
+  max_det: 300
+  device: cpu
+decision:
+  target_class: person
+  conf_threshold: 0.5
+filter:
+  n_on: 3
+  k_window: 5
+  m_off: 5
+conditions:
+- name: clean
+  kind: clean
+  param: null
+- name: blur_k7
+  kind: blur
+  param: 7
+- name: blur_k15
+  kind: blur
+  param: 15
+- name: blur_k31
+  kind: blur
+  param: 31
+- name: lowlight_g060
+  kind: low_light
+  param: 0.6
+- name: lowlight_g045
+  kind: low_light
+  param: 0.45
+- name: lowlight_g025
+  kind: low_light
+  param: 0.25
+- name: noise_s10
+  kind: noise
+  param: 10
+- name: noise_s20
+  kind: noise
+  param: 20
+- name: noise_s35
+  kind: noise
+  param: 35
+roi:
+  x_min: 0.35
+  x_max: 0.65
+  y_min: 0.3
+  y_max: 1.0
+  min_height: 0.5
+fault:
+  missing_rate: 0.0
+  error_rate: 0.0
+  seed: 0
+noise_seed: 1234
+warmup: 10

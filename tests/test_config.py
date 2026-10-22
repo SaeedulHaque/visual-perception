@@ -79,3 +79,30 @@ def test_duplicate_condition_names_raise(tmp_path):
     }
     with pytest.raises(ValueError):
         load_config(_write(tmp_path, data))
+
+
+def test_sequence_config_defaults_and_round_trip(tmp_path):
+    from robust_visual_perception.config import (
+        config_to_dict,
+        load_sequence_config,
+    )
+    from robust_visual_perception.decision import CORRIDOR_ROI
+
+    data = {"run_name": "s", "data_root": "data/raw/mot17", "sequences": ["MOT17-05"]}
+    cfg = load_sequence_config(_write(tmp_path, data))
+    assert cfg.model.imgsz == (416,)
+    assert cfg.roi == CORRIDOR_ROI
+    assert cfg.fault.missing_rate == 0.0
+    assert cfg.sequences == ("MOT17-05",)
+    again = load_sequence_config(_write(tmp_path, config_to_dict(cfg)))
+    assert again == cfg
+
+
+def test_sequence_config_rejects_several_sizes_and_bad_fault_key(tmp_path):
+    from robust_visual_perception.config import load_sequence_config
+
+    base = {"run_name": "s", "data_root": "d", "sequences": ["a"]}
+    with pytest.raises(ValueError):
+        load_sequence_config(_write(tmp_path, {**base, "model": {"imgsz": [320, 416]}}))
+    with pytest.raises(ValueError):
+        load_sequence_config(_write(tmp_path, {**base, "fault": {"drop": 0.1}}))

@@ -27,8 +27,8 @@ Phase 0  Design           docs/design.md: questions, hypotheses, fixed parameter
    │
 Phase 1  Offline pipeline  core package + tests + smoke test          ◄── done
    │
-Phase 2  Experiments       COCO image experiment, MOT17 sequence experiment,
-   │                       metrics, plots, summary
+Phase 2  Experiments       COCO image experiment, MOT17 sequence experiment,  ◄── done
+   │                       metrics, filter sweep, faults, plots, summaries
 Phase 3  Robotics          ROS 2 Jazzy + Gazebo Harmonic in Docker; TurtleBot3
    │                       camera ─► perception node using the same core package
 Phase 4  GPU comparison    same benchmark on a second machine (CPU vs GPU)
@@ -42,6 +42,21 @@ same functions, so simulator results are directly comparable.
 
 ## 3. End-to-end data flow
 
+Every experiment has three stages, each a separate script:
+
+```
+fetch (once)          run (inference only)              evaluate + plot
+──────────────        ─────────────────────             ───────────────────────────
+data/manifests/  ──►  results/<run>/per_frame.csv  ──►  results/<run>/aggregate.csv
+data/raw/             results/<run>/detections_*.npz    results/<run>/figures/*.png
+                      config.yaml env.json ...          results/<run>/summary.md
+```
+
+Metrics never run inside inference. The model runs once; metrics can be
+recomputed and checked from the saved files.
+
+### 3.1 Image experiment (COCO)
+
 ```
                     ┌──────────────────── one-time data preparation ────────────────────┐
                     │                                                                   │
@@ -52,18 +67,18 @@ same functions, so simulator results are directly comparable.
                     └───────────────────────────────┬───────────────────────────────────┘
                                                     │ manifest + images
                                                     ▼
- configs/smoke.yaml ──► load_config() ──► ExperimentConfig
+ configs/image_experiment.yaml ──► load_config() ──► ExperimentConfig
                                                     │
                                                     ▼
  ┌────────────────────────────── run_image_experiment() ───────────────────────────────┐
  │                                                                                     │
  │  manifest ─► image paths + gt_state (STOP if the image has a person)                │
  │                                                                                     │
- │  iter_image_files ──► Frame(frame_id, image, status OK | MISSING)                   │
- │        │                                                                            │
- │        │  for each imgsz:  build detector, 10 untimed warm-up calls                 │
- │        │  for each frame:                                                           │
- │        │    for each of the 10 conditions:                                          │
+ │  build one detector per imgsz, 10 untimed warm-up calls each                        │
+ │  iter_image_files ──► Frame(frame_id, image, status OK | MISSING)   (streamed)      │
+ │        │  for each frame (read once):                                               │
+ │        │    for each imgsz (320, 416, 640):                                         │
+ │        │      for each of the 10 conditions:   process_frame()                      │
  │        ▼                                                                            │
  │   ┌───────────┐ uint8  ┌───────────┐ DetectionResult ┌───────────┐ Decision         │
  │   │ apply()   │──────► │ detect()  │───────────────► │ baseline_ │───────┐          │
@@ -71,16 +86,51 @@ same functions, so simulator results are directly comparable.
  │   └───────────┘        └───────────┘ status          └───────────┘ reason│          │
  │                                                                          ▼          │
  │                                              PerFrameWriter.write(row) ─► CSV row   │
+ │   all boxes ─► DetectionStore ─► detections_<condition>_<imgsz>.npz                 │
  │   MISSING frame ─────────────── skips degrade/detect ──► UNKNOWN / missing_frame    │
  └─────────────────────────────────────────────────────────────────────────────────────┘
                                                     │
                                                     ▼
- results/<run_name>/   config.yaml  env.json  command.txt  per_frame.csv
+ results/image_main/  config.yaml env.json command.txt resources.json per_frame.csv *.npz
+                                                    │
+ evaluate_image_experiment.py   image_eval.evaluate_image_run()
+   stored boxes + COCO GT ─► coco_map (pycocotools), person_pr, retention
+   per_frame.csv          ─► decision_metrics (image STOP), latency_stats
+                                                    ▼
+ aggregate.csv (one row per condition × imgsz) ─► plot_results.py ─► figures/, summary.md
 ```
 
-For video sequences (Phase 2), one more stage sits between the decision and
-the CSV: `PersistenceFilter.update(state)` turns the per-frame state into
-the filtered state, written to the `filtered_state` column.
+### 3.2 Sequence experiment (MOT17)
+
+```
+ motchallenge.net MOT17.zip (5.9 GB, never fully downloaded)
+   │ RangeFile: HTTP range requests, zipfile reads the archive directory remotely
+   ├─► seqinfo.ini + gt/gt.txt of 7 training sequences
+   │     gt_stop_states() with each ROI in the grid ─► mot17_roi_search.csv
+   │     choose_roi() ─► ROI;  select_sequences() ─► mot17_sequences.csv (roles)
+   └─► extract_prefix(): one byte-range request per selected sequence ─► img1/
+
+ configs/sequence_experiment.yaml ──► SequenceExperimentConfig
+   for each sequence (tuning MOT17-09, evaluation MOT17-05, MOT17-11):
+     GT-STOP per frame from gt.txt (same ROI rule as the detections)
+     one PersistenceFilter per condition, reset per sequence
+     for each frame (one path per frame number, so gaps stay aligned):
+       optional injected fault (MISSING / ERROR), same frames for every condition
+       for each condition:
+         process_frame(..., roi) ─► Decision ─► filter.update() ─► filtered state
+         row: sequence, frame, condition, baseline, filtered, gt, latency
+   ─► results/sequence_main/per_frame.csv
+
+ evaluate_sequence_experiment.py   sequence_eval.evaluate_sequence_run()
+   tuning sequence: refilter() baseline states with 12 settings ─► sweep.csv
+                    adopt_setting() (dominance rule) ─► adopted_filter.json
+   every (sequence, condition): stream_metrics() for baseline, filtered
+                    (and filtered_adopted if the sweep changed the setting)
+   ─► aggregate.csv ─► plot_results.py ─► figures/, summary.md
+```
+
+The fault run (`configs/sequence_faults.yaml`) is the same loop with 2 %
+MISSING and 1 % ERROR frames, evaluated with the main run's adopted setting.
 
 ## 4. What travels between stages
 
@@ -91,7 +141,10 @@ the filtered state, written to the `filtered_state` column.
 | detector → decision | `DetectionResult` | `status` OK / EMPTY / ERROR, list of `Detection` (class, confidence, box in pixels), `latency_ms`, `image_hw`, `error` |
 | decision → filter | `Decision` | `state` CLEAR / STOP / UNKNOWN, `reason` (`missing_frame`, `detector_error`) |
 | filter → output | `State` | filtered CLEAR / STOP / UNKNOWN |
-| config → everything | `ExperimentConfig` | data paths, model settings, thresholds, filter parameters, conditions, seed, warm-up count |
+| decision → output | `FrameOutput` | the `Decision`, the `DetectionResult` (or `None`), and the CSV fields of this step (`process_frame`) |
+| detector → store | `Detection` list | kept per (condition, imgsz) as N×7 arrays in COCO result layout |
+| per-frame CSV → metrics | CSV rows, `.npz` arrays | the only inputs of the evaluation step |
+| config → everything | `ExperimentConfig` / `SequenceExperimentConfig` | data paths, model settings, thresholds, filter, ROI, faults, conditions, seed, warm-up count |
 
 Every type is a small frozen dataclass or enum. No stage receives a vendor
 object (such as an Ultralytics `Results`), so stages can be tested, and
@@ -100,7 +153,7 @@ replaced, independently.
 ## 5. How the components depend on each other
 
 ```
-                          scripts/run_smoke_test.py
+                       scripts/run_image_experiment.py
                            │          │          │
                            ▼          ▼          ▼
                        config   experiment_runner   detector (UltralyticsDetector)
@@ -116,6 +169,18 @@ replaced, independently.
                                                   only module that
      scripts/fetch_coco_subset.py ──► coco_subset imports ultralytics
      scripts/collect_env.py       ──► environment
+
+ Phase 2 additions
+     sequence_runner ──► experiment_runner.process_frame, mot17, temporal_filter,
+                         reporting, config
+     mot17           ──► decision (Roi)
+     remote_zip         (stdlib only)
+     detection_store ──► detector (types)
+     metrics            (numpy, pycocotools)
+     image_eval      ──► metrics, detection_store, coco_subset, config
+     sequence_metrics ─► metrics, mot17 (events), temporal_filter
+     sequence_eval   ──► sequence_metrics, mot17, config
+     plots, summary     read aggregate CSVs only
 ```
 
 Rules the layout follows:
@@ -145,7 +210,16 @@ Rules the layout follows:
 | `config` | describe a run in YAML | unknown keys are errors, not silent defaults | [config-and-outputs](features/config-and-outputs.md) |
 | `environment` | record machine and versions | CPU, RAM, package versions, torch threads, git commit and dirty flag | [config-and-outputs](features/config-and-outputs.md) |
 | `reporting` | write run outputs | fixed CSV header; existing run directory never overwritten without `--overwrite` | [config-and-outputs](features/config-and-outputs.md) |
-| `experiment_runner` | orchestrate one run | each image loaded once, degraded per condition; warm-up excluded; every failure becomes a row | [smoke-test](features/smoke-test.md) |
+| `experiment_runner` | orchestrate one image run; `process_frame` is the shared per-frame step | each image read once and streamed; warm-up excluded; every failure becomes a row | [smoke-test](features/smoke-test.md) |
+| `detection_store` | keep every box for mAP | N×7 `.npz` per (condition, imgsz) in pycocotools result layout | [image-experiment](features/image-experiment.md) |
+| `metrics` | image metrics | greedy one-to-one matching at IoU 0.5; crowd regions ignored; NaN for empty denominators | [metrics](features/metrics.md) |
+| `image_eval` | aggregate one image run | one row per (condition, imgsz); UNKNOWN counts as STOP | [image-experiment](features/image-experiment.md) |
+| `remote_zip` | read a remote zip partially | range requests; one request per sequence span; `.part` then rename | [mot17](features/mot17.md) |
+| `mot17` | GT-STOP, events, selection | GT boxes clipped like detections; events merge gaps < 5 frames; ROI grid search on GT only | [mot17](features/mot17.md) |
+| `sequence_runner` | run sequences through the filter | one filter per condition, reset per sequence; seeded faults identical across conditions | [sequence-experiment](features/sequence-experiment.md) |
+| `sequence_metrics` | stream metrics, sweep, adoption | onset/release delays, transitions, false-STOP episodes; dominance rule | [metrics](features/metrics.md) |
+| `sequence_eval` | aggregate one sequence run | sweep on tuning sequence only; adopted setting applied unchanged | [sequence-experiment](features/sequence-experiment.md) |
+| `plots`, `summary` | figures and `summary.md` | generated from CSVs only; mechanical hypothesis checks | [image-experiment](features/image-experiment.md) |
 
 ## 7. One frame's journey
 
@@ -161,14 +235,19 @@ Taking COCO image `000000241668` (two people in the manifest) through the
    the call and returns every box with confidence ≥ 0.001.
 5. `baseline_decision` finds a `person` box with confidence ≥ 0.5 and
    returns `STOP`.
-6. The runner writes one row. Real row from the smoke run:
+6. The runner writes one row. Real row from `results/image_main`
+   (`sequence` is empty for image runs):
 
 ```
-frame_id,condition,imgsz,status,n_detections,n_target,max_target_conf,latency_ms,baseline_state,state_reason,filtered_state,gt_state
-000000241668,blur_k7,640,OK,119,1,0.7418,33.489,STOP,,,STOP
+sequence,frame_id,condition,imgsz,status,n_detections,n_target,max_target_conf,latency_ms,load_ms,degrade_ms,baseline_state,state_reason,filtered_state,gt_state
+,000000241668,blur_k7,640,OK,119,1,0.7418,31.488,2.741,0.822,STOP,,,STOP
 ```
+7. Its boxes go to `detections_blur_k7_640.npz`; the evaluation later
+   matches them against the image's two GT persons. The hand-check in
+   [image-experiment.md](features/image-experiment.md) walks through this
+   image under `clean` and `blur_k31`.
 
-`n_detections=119` counts boxes above the 0.001 floor (mostly
+`n_detections` counts boxes above the 0.001 floor (mostly
 low-confidence candidates kept for mAP), not people in the image.
 `n_target=1` is the number of person boxes at ≥ 0.5. The clean version of
 the same image has two, so the blur removed one confident detection. That
@@ -181,7 +260,7 @@ would read `status=MISSING`, `baseline_state=UNKNOWN`,
 ## 8. Tests
 
 ```
-uv run pytest            # 100 tests, about 1 s, no model weights or network needed
+uv run pytest            # 174 tests, a few seconds, no model weights or network needed
 uv run ruff check .      # lint
 ```
 
@@ -192,10 +271,26 @@ uv run ruff check .      # lint
 | `test_detector.py` | 9 | `Detection` validation, boxes clipped to the image, degenerate boxes dropped, OK vs EMPTY status, clear error for missing custom weights |
 | `test_decision.py` | 13 | 0.5 is STOP and 0.49 is CLEAR, other classes ignored, missing frame and detector error give UNKNOWN with reasons, ROI accepts and rejects the right boxes |
 | `test_temporal_filter.py` | 13 | the worked examples from the filter page: onset after 3 of 5, release after 5 CLEAR, release count reset by STOP, behaviour around UNKNOWN gaps, no re-trigger from stale history, invalid parameters |
-| `test_config.py` | 7 | defaults match the design, nested sections parse, YAML round-trip, typos and missing keys raise, duplicate condition names raise |
-| `test_reporting.py` | 6 | CSV header, unknown column rejected, existing run directory protected, metadata files written, environment record complete |
+| `test_config.py` | 9 | defaults match the design, nested sections parse, YAML round-trip (image and sequence configs), typos and missing keys raise, duplicate condition names raise, one imgsz for sequences |
+| `test_reporting.py` | 7 | CSV header, unknown column rejected, existing run directory protected, metadata and resources files written, environment record complete |
 | `test_coco_subset.py` | 7 | pool rules (crowd-only excluded), too-large requests raise, smaller subset is a prefix, seed matters, manifest round-trip, failed download leaves no files, existing files skipped |
-| `test_experiment_runner.py` | 8 | one row per frame and condition, ground truth from manifest, warm-up calls not written, low-confidence person reported but CLEAR, MISSING and ERROR rows, run continues after a detector failure, existing run not overwritten, folder mode without manifest |
+| `test_experiment_runner.py` | 10 | one row per frame and condition, ground truth from manifest, warm-up calls not written, low-confidence person reported but CLEAR, MISSING and ERROR rows, run continues after a detector failure, existing run not overwritten, folder mode without manifest, each image read once across sizes, detections and resources saved |
+| `test_detection_store.py` | 4 | round trip in COCO result layout, class index → COCO category id, positive box sizes, missing file raises |
+| `test_metrics.py` | 16 | IoU values, greedy matching order, TP/FP/FN, threshold, crowd-ignored predictions, retention, NaN for empty ratios, decision metrics, latency stats and p95 rule, COCO mAP = 1 for perfect predictions and 0 without predictions |
+| `test_image_eval.py` | 4 | a perfect fake detector scores 1 everywhere, a degraded condition losing the person, a false STOP on a negative image, column order |
+| `test_mot17.py` | 11 | seqinfo parsing, all GT filters (considered, class, visibility), ROI geometry, GT clipping, event merging, selection rule, ROI choice rule |
+| `test_remote_zip.py` | 5 | range reads behave like a file, zipfile lists and reads remote members, one request per extracted span, interrupted extract leaves nothing, existing destination skipped |
+| `test_sequence_runner.py` | 7 | GT, baseline and filtered states per frame, ROI applied, missing image keeps alignment, full fault rates, faults identical across conditions, deterministic fault draw, filter reset between sequences |
+| `test_sequence_metrics.py` | 9 | the worked example on the metrics page, never-stopping stream, release into the next event, UNKNOWN as STOP, `refilter` = online filter, sweep grid, adoption rule cases |
+| `test_sequence_eval.py` | 3 | baseline and filtered rows, sweep only on the tuning sequence, adopted rows only when the setting changed |
+| `test_summary_and_plots.py` | 3 | monotonic check text, image counts and fault rates read from data, H3 check text, figure files written |
+| `test_compare.py` | 7 | timing columns recognised, identical results match while timing is reported separately, differences above tolerance reported, small ones accepted, only shared rows compared, NaN equals NaN, nothing in common is not a match |
+
+**Checking against the reference runs.** `scripts/compare_runs.py`
+compares a re-run's `aggregate.csv` with a committed run: accuracy must
+agree within a tolerance, latency is printed side by side as a device
+benchmark. Step-by-step recreation of each phase is at the end of each plan
+in `docs/plans/`.
 
 **How the tests avoid the model.** `tests/fakes.py` provides
 `FakeDetector`, which replays a scripted list of detections or exceptions.
@@ -207,7 +302,7 @@ model is exercised by the smoke test.
 
 ```
 uv run python scripts/fetch_coco_subset.py --n-person 14 --n-negative 6 --name smoke
-uv run python scripts/run_smoke_test.py --config configs/smoke.yaml
+uv run python scripts/run_image_experiment.py --config configs/smoke.yaml
 ```
 
 It passes when `results/smoke/per_frame.csv` has 200 rows (20 images × 10
@@ -221,6 +316,9 @@ check, not results.
 | which images | committed manifest, seeded selection |
 | image content | SHA-256 of the annotation files in `data/README.md` |
 | noise | per-frame seed from `crc32(frame_id)`, independent of processing order |
+| faults | per-frame seed from `crc32(sequence/frame)`, identical across conditions |
+| MOT17 sequences and ROI | GT-only rules in code; search table and roles committed in `data/manifests/` |
+| metrics | recomputed from saved files by the evaluate scripts; summaries generated, never typed |
 | parameters | YAML config, copied into each run directory |
 | software | `uv.lock` pins every package; `env.json` records versions and git commit |
 | hardware | `env.json` records CPU, cores, RAM, torch threads |
@@ -231,7 +329,10 @@ check, not results.
 1. [design.md](design.md): the questions and why the method looks like this.
 2. This page: how the pieces connect.
 3. [features/](features/README.md): one stage at a time.
+   [troubleshooting.md](troubleshooting.md) lists the problems met on the
+   way and how they were solved.
 4. `src/robust_visual_perception/experiment_runner.py`: the whole pipeline
-   in one function.
-5. `tests/test_temporal_filter.py`: the filter's behaviour as readable
+   in one function; `sequence_runner.py` for the video version.
+5. `results/*/summary.md`: the generated results.
+6. `tests/test_temporal_filter.py`: the filter's behaviour as readable
    input → output strings.

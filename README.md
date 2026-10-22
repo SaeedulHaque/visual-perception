@@ -17,13 +17,22 @@ How everything fits together (data flow, components, tests):
 | Phase | Content | State |
 |---|---|---|
 | 1 | Offline pipeline: degradations, detector, decision, temporal filter, run outputs, smoke test | done |
-| 2 | COCO image experiment and MOT17 sequence experiment | planned |
+| 2 | COCO image experiment and MOT17 sequence experiment, filter sweep, fault injection | done |
 | 3 | ROS 2 Jazzy + Gazebo Harmonic (Docker), TurtleBot3 camera feeding a perception node | planned |
 | 4 | CPU vs GPU latency on a second machine | planned |
 | 5 | Final report | planned |
 
-No results yet. Numbers will appear here only from saved runs in
-`results/`.
+Results are generated from saved runs, never typed by hand:
+
+- [results/image_main/summary.md](results/image_main/summary.md): COCO,
+  750 images × 10 conditions × 3 input sizes
+- [results/sequence_main/summary.md](results/sequence_main/summary.md):
+  MOT17, temporal filter, sweep and fault injection
+
+Read them together with [docs/limitations.md](docs/limitations.md).
+Problems I ran into while building this, and what to avoid:
+[docs/troubleshooting.md](docs/troubleshooting.md). A results
+table in this README follows in Phase 5.
 
 ## Pipeline
 
@@ -42,12 +51,35 @@ Each stage has its own page in [docs/features/](docs/features/README.md).
 uv sync                                    # Python 3.12 venv, CPU PyTorch
 uv run pytest                              # unit tests, no model weights needed
 uv run python scripts/fetch_coco_subset.py --n-person 14 --n-negative 6 --name smoke
-uv run python scripts/run_smoke_test.py --config configs/smoke.yaml
+uv run python scripts/run_image_experiment.py --config configs/smoke.yaml
 ```
 
 The smoke test writes `results/smoke/per_frame.csv` (20 images × 10
 conditions). Details: [docs/setup.md](docs/setup.md),
 [docs/features/smoke-test.md](docs/features/smoke-test.md).
+
+Full experiments: [image experiment](docs/features/image-experiment.md#reproduce),
+[sequence experiment](docs/features/sequence-experiment.md#reproduce).
+
+## Reproduce the results and benchmark your device
+
+Step-by-step recreation of each phase, with a check after every step:
+
+- Phase 1: [docs/plans/phase-1-offline-pipeline.md](docs/plans/phase-1-offline-pipeline.md#recreate-phase-1-and-check-it-yourself)
+- Phase 2: [docs/plans/phase-2-experiments.md](docs/plans/phase-2-experiments.md#recreate-phase-2-and-check-it-yourself)
+
+Quick device benchmark (750 COCO images, three input sizes), compared with
+the reference machine:
+
+```
+uv run python scripts/fetch_coco_subset.py --n-person 500 --n-negative 250 --name main
+uv run python scripts/run_image_experiment.py --config configs/benchmark.yaml
+uv run python scripts/evaluate_image_experiment.py --run results/benchmark
+uv run python scripts/compare_runs.py --reference results/image_main --candidate results/benchmark
+```
+
+`compare_runs.py` checks that your accuracy numbers match the committed run
+and prints your latency next to the reference.
 
 ## Layout
 

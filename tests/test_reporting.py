@@ -10,6 +10,7 @@ from robust_visual_perception.reporting import (
     PER_FRAME_COLUMNS,
     PerFrameWriter,
     prepare_run_dir,
+    write_resources,
     write_run_metadata,
 )
 
@@ -32,6 +33,7 @@ def test_per_frame_writer_rejects_unknown_column(tmp_path):
 
 def test_per_frame_columns_match_design():
     assert PER_FRAME_COLUMNS == [
+        "sequence",
         "frame_id",
         "condition",
         "imgsz",
@@ -40,6 +42,8 @@ def test_per_frame_columns_match_design():
         "n_target",
         "max_target_conf",
         "latency_ms",
+        "load_ms",
+        "degrade_ms",
         "baseline_state",
         "state_reason",
         "filtered_state",
@@ -83,3 +87,9 @@ def test_collect_environment_has_core_fields():
         assert key in env
     assert "torch" in env["packages"]
     json.dumps(env)
+
+
+def test_write_resources(tmp_path):
+    write_resources(tmp_path, peak_rss_bytes=3 * 2**20, wall_time_s=12.5, n_rows=7)
+    data = json.loads((tmp_path / "resources.json").read_text())
+    assert data == {"peak_rss_mib": 3.0, "wall_time_s": 12.5, "n_rows": 7}

@@ -17,6 +17,7 @@ from robust_visual_perception.environment import collect_environment
 # One row per (frame, condition, imgsz). Documented in
 # docs/features/config-and-outputs.md.
 PER_FRAME_COLUMNS = [
+    "sequence",
     "frame_id",
     "condition",
     "imgsz",
@@ -25,6 +26,8 @@ PER_FRAME_COLUMNS = [
     "n_target",
     "max_target_conf",
     "latency_ms",
+    "load_ms",
+    "degrade_ms",
     "baseline_state",
     "state_reason",
     "filtered_state",
@@ -81,3 +84,15 @@ def write_run_metadata(run_dir: Path, cfg: ExperimentConfig, command: str) -> No
     )
     (run_dir / "env.json").write_text(json.dumps(collect_environment(), indent=2))
     (run_dir / "command.txt").write_text(command + "\n")
+
+
+def write_resources(
+    run_dir: Path, peak_rss_bytes: int, wall_time_s: float, n_rows: int
+) -> None:
+    """Peak resident memory and wall time of the run (resources.json)."""
+    data = {
+        "peak_rss_mib": round(peak_rss_bytes / 2**20, 1),
+        "wall_time_s": round(wall_time_s, 1),
+        "n_rows": n_rows,
+    }
+    (Path(run_dir) / "resources.json").write_text(json.dumps(data, indent=2))
