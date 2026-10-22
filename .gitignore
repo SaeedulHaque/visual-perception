@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Data and weights (fetched by scripts, never committed)
+data/raw/
+models/*.pt
+models/*.onnx
+
+# Run outputs: only final runs referenced by the README are committed
+results/*
+!results/README.md
+*.json.gz
+
+# Tooling scratch
+.superpowers/
+graphify-out/
