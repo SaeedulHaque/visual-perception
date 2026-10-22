@@ -1,0 +1,53 @@
+run_name: image_main
+image_dir: data/raw/coco/val2017
+manifest: data/manifests/coco_val2017_main.csv
+output_root: results
+model:
+  weights: models/yolo26n.pt
+  imgsz:
+  - 320
+  - 416
+  - 640
+  conf: 0.001
+  max_det: 300
+  device: cpu
+decision:
+  target_class: person
+  conf_threshold: 0.5
+filter:
+  n_on: 3
+  k_window: 5
+  m_off: 5
+conditions:
+- name: clean
+  kind: clean
+  param: null
+- name: blur_k7
+  kind: blur
+  param: 7
+- name: blur_k15
+  kind: blur
+  param: 15
+- name: blur_k31
+  kind: blur
+  param: 31
+- name: lowlight_g060
+  kind: low_light
+  param: 0.6
+- name: lowlight_g045
+  kind: low_light
+  param: 0.45
+- name: lowlight_g025
+  kind: low_light
+  param: 0.25
+- name: noise_s10
+  kind: noise
+  param: 10
+- name: noise_s20
+  kind: noise
+  param: 20
+- name: noise_s35
+  kind: noise
+  param: 35
+noise_seed: 1234
+warmup: 10

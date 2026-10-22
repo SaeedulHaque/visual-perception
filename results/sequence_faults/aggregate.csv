@@ -1,0 +1,7 @@
+sequence,role,condition,kind,param,method,n_on,k_window,m_off,n_frames,precision,recall,accuracy,transitions,transitions_per_min,change_fraction,n_events,events_detected,events_missed,onset_mean_frames,onset_mean_s,onset_median_frames,release_mean_frames,release_mean_s,release_n,false_stop_episodes,false_stop_per_min,n_unknown,tp,fp,fn,tn,latency_mean_ms,latency_p95_ms
+MOT17-05,evaluation,clean,clean,,baseline,,,,837,0.77265,0.980477,0.830346,75,75.2688,0.0897129,9,9,0,0.333333,0.0238095,0,2.625,0.1875,8,11,11.0394,26,452,133,9,243,19.1114,26.208
+MOT17-05,evaluation,clean,clean,,filtered,3,5,5,837,0.732026,0.9718,0.78853,68,68.2437,0.0813397,9,9,0,1.44444,0.103175,1,7.25,0.517857,8,9,9.03226,26,448,164,13,212,19.1114,26.208
+MOT17-05,evaluation,clean,clean,,filtered_adopted,2,3,3,837,0.757983,0.978308,0.81601,68,68.2437,0.0813397,9,9,0,0.888889,0.0634921,0,4.375,0.3125,8,10,10.0358,26,451,144,10,232,19.1114,26.208
+MOT17-11,evaluation,clean,clean,,baseline,,,,900,0.973913,0.979021,0.97,70,140,0.0778643,6,6,0,0.166667,0.00555556,0,0.333333,0.0111111,6,10,20,26,560,15,12,313,14.7136,15.266
+MOT17-11,evaluation,clean,clean,,filtered,3,5,5,900,0.945946,0.979021,0.951111,62,124,0.0689655,6,6,0,2,0.0666667,2,3.33333,0.111111,6,9,18,26,560,32,12,296,14.7136,15.266
+MOT17-11,evaluation,clean,clean,,filtered_adopted,2,3,3,900,0.960616,0.980769,0.962222,64,128,0.0711902,6,6,0,1.16667,0.0388889,1,1.66667,0.0555556,6,9,18,26,561,23,11,305,14.7136,15.266

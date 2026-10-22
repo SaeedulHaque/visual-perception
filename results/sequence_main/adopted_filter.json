@@ -1,0 +1,13 @@
+{
+  "default": {
+    "n_on": 3,
+    "k_window": 5,
+    "m_off": 5
+  },
+  "adopted": {
+    "n_on": 2,
+    "k_window": 3,
+    "m_off": 3
+  },
+  "changed": true
+}
