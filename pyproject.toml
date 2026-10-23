@@ -8,7 +8,7 @@ license-files = ["LICENSE"]
 authors = [{ name = "Saeedul Haque" }]
 requires-python = ">=3.12,<3.13"
 dependencies = [
-    "numpy>=2.0",
+    "numpy>=1.26",
     "opencv-python>=4.10",
     "pyyaml>=6.0",
     "psutil>=6.0",
