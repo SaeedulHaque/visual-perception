@@ -1,0 +1,1 @@
+python scripts/run_sequence_experiment.py --config configs/sim_replay.yaml --run-name sim_replay_check

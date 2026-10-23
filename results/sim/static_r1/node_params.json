@@ -1,0 +1,23 @@
+{
+  "weights": "/work/models/yolo26n.pt",
+  "imgsz": 416,
+  "conf": 0.001,
+  "max_det": 300,
+  "target_class": "person",
+  "conf_threshold": 0.5,
+  "publish_threshold": 0.25,
+  "roi": [
+    0.3,
+    0.7,
+    0.0,
+    1.0,
+    0.25
+  ],
+  "n_on": 2,
+  "k_window": 3,
+  "m_off": 3,
+  "image_topic": "/camera/image_raw",
+  "stale_timeout_s": 0.5,
+  "warmup": 10,
+  "output_dir": "/work/results/sim/static_r1"
+}

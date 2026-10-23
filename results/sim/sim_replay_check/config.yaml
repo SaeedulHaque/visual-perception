@@ -1,0 +1,40 @@
+run_name: sim_replay_check
+data_root: data/raw/sim/sequences
+sequences:
+- static_r1
+- static_r2
+- static_r3
+- scripted_r1
+- scripted_r2
+- scripted_r3
+output_root: results/sim
+model:
+  weights: models/yolo26n.pt
+  imgsz:
+  - 416
+  conf: 0.001
+  max_det: 300
+  device: cpu
+decision:
+  target_class: person
+  conf_threshold: 0.5
+filter:
+  n_on: 2
+  k_window: 3
+  m_off: 3
+conditions:
+- name: clean
+  kind: clean
+  param: null
+roi:
+  x_min: 0.3
+  x_max: 0.7
+  y_min: 0.0
+  y_max: 1.0
+  min_height: 0.25
+fault:
+  missing_rate: 0.0
+  error_rate: 0.0
+  seed: 0
+noise_seed: 1234
+warmup: 10
