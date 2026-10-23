@@ -398,8 +398,8 @@ Progress (each plan in `docs/plans/` has the detailed checklist):
 - [x] Phase 0: design approved
 - [x] Phase 1: offline pipeline, merged (PR #2)
 - [x] Phase 2: experiments, merged (PR #3)
-- [x] Phase 3: ROS 2 / Gazebo implemented, runs and replay done; teleop
-  demo still to record, not yet committed
+- [x] Phase 3: ROS 2 / Gazebo implemented, runs, replay and teleop demo
+  done
 - [ ] Phase 4: GPU comparison on Machine B
 - [ ] Phase 5: final report
 

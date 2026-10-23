@@ -23,3 +23,4 @@ One page per part of the pipeline, in data-flow order.
 | [Perception node](perception-node.md) | `ros_image.py`, `rvp_ros/perception_node.py` |
 | [Scripted drive and command guard](scripted-drive.md) | `drive_profile.py`, `rvp_ros/scripted_drive.py`, `rvp_ros/cmd_guard.py` |
 | [Simulation runs, replay and evaluation](sim-runs.md) | `sim.launch.py`, `run_monitor.py`, `export_bag.py`, `sim_eval.py`, `sim_report.py` |
+| [Annotated video of a run](sim-video.md) | `sim_video.py`, `render_sim_video.py` |

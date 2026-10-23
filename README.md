@@ -18,7 +18,7 @@ How everything fits together (data flow, components, tests):
 |---|---|---|
 | 1 | Offline pipeline: degradations, detector, decision, temporal filter, run outputs, smoke test | done |
 | 2 | COCO image experiment and MOT17 sequence experiment, filter sweep, fault injection | done |
-| 3 | ROS 2 Jazzy + Gazebo Harmonic (Docker), TurtleBot3 camera feeding a perception node, repeated runs, bag replay | done (teleop demo still to record) |
+| 3 | ROS 2 Jazzy + Gazebo Harmonic (Docker), TurtleBot3 camera feeding a perception node, repeated runs, bag replay | done |
 | 4 | CPU vs GPU latency on a second machine | planned |
 | 5 | Final report | planned |
 
@@ -30,7 +30,8 @@ Results are generated from saved runs, never typed by hand:
   MOT17, temporal filter, sweep and fault injection
 - [results/sim/summary/summary.md](results/sim/summary/summary.md):
   TurtleBot3 simulation, live node and bag replay, 3 repeats each of a
-  static and a scripted-motion run ([what the runs show](docs/features/sim-runs.md#results))
+  static and a scripted-motion run, plus one teleop demo ([what the runs show](docs/features/sim-runs.md#results),
+  [frames from the demo](results/sim/summary/figures/frames_teleop_r1.png))
 
 Read them together with [docs/limitations.md](docs/limitations.md).
 Problems I ran into while building this, and what to avoid:

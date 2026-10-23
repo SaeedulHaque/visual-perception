@@ -54,11 +54,11 @@ Implemented on `feature/ros2-sim`; not yet committed.
 - [x] Done: GT check against detections (`results/sim/summary/gt_check.json`)
 - [x] Done: teleop mode ready (launch, recording and export checked
   without a keyboard)
-- [ ] Teleop demo recorded (needs me at the keyboard; command in step 6 of
-  the recreate section below)
+- [x] Done: teleop demo recorded (`results/sim/teleop_r1`), with the Gazebo
+  window, and an annotated video and still sheet of it
 - [x] Done: feature pages, data flow, README, limitations and
   troubleshooting updated
-- [ ] Committed and pushed
+- [x] Done: committed and pushed to `feature/ros2-sim`
 
 ## Global constraints (from the design, unchanged)
 
@@ -181,6 +181,14 @@ Facts checked before writing this plan, in a scratch container:
 - **Export split.** The bag export in the container only extracts raw
   data. GT is computed on the host (`make_sim_gt.py`), after the person's
   size has been measured from a static run.
+- **Gazebo window for teleop.** The first teleop attempt showed no window,
+  since Gazebo runs headless. `RVP_GUI=1` (launch argument `gui:=true`)
+  now also starts the Gazebo GUI client on the host's X display. Only
+  teleop runs allow it, so the measured runs are unchanged.
+- **Annotated video.** Not planned. The bag export also writes the node's
+  published detections (`detections.csv`), and `render_sim_video.py`
+  draws them with the GT box and the states on every frame
+  ([sim-video.md](../features/sim-video.md)).
 
 ## Review focus
 
@@ -460,18 +468,32 @@ second replay (`results/sim/sim_replay_check`) was compared this way:
 ### 6. Teleop demo (by hand)
 
 ```
-HOST_UID=$(id -u) HOST_GID=$(id -g) RENDER_GID=$(getent group render | cut -d: -f3) \
+xhost +SI:localuser:$(whoami)      # once per login, for the Gazebo window
+HOST_UID=$(id -u) HOST_GID=$(id -g) RENDER_GID=$(getent group render | cut -d: -f3) RVP_GUI=1 \
     docker compose -f docker/compose.yaml run --rm sim docker/sim_run.sh teleop teleop_r1 120
 ```
 
 Drive with the keys `teleop_twist_keyboard` prints (`i` forward, `j`/`l`
 turn, `k` stop). The guard caps the speed at 0.15 m/s and 0.5 rad/s, and
-stops the robot 0.5 s after the last key. The run ends after 120 s of sim
-time and is exported like the others. Then:
+stops the robot 0.5 s after the last key. `teleop_twist_keyboard` sends
+one command per key press, so hold a key to keep moving; a single tap
+moves the robot for about 0.5 s. The arrow keys do nothing. The Gazebo
+window takes the keyboard focus when it opens: click the terminal before
+driving. Do not press Ctrl-C: it ends the whole run early. The run ends after 120 s of sim time and is exported like the
+others. Then:
 
 ```
 uv run python scripts/make_sim_gt.py data/raw/sim/sequences/teleop_r1
 uv run python scripts/evaluate_sim.py
 ```
 
-It is scored live only, as a single demo run.
+It is scored live only, as a single demo run. To watch it:
+
+```
+uv run python scripts/render_sim_video.py --run teleop_r1 \
+    --sheet results/sim/summary/figures/frames_teleop_r1.png
+```
+
+Check: the video is in `data/raw/sim/videos/teleop_r1.mp4`, and the
+sheet shows six frames with green GT boxes, orange detections and the
+state banner.

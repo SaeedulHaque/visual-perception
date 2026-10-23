@@ -96,7 +96,15 @@ specific to how the experiments were run.
   on the wall clock. With a real-time factor near 1 their sum approximates
   the delay to the published state, but it is not one measured interval.
 - **Teleop demo.** The keyboard run is a single, non-repeatable
-  demonstration and is not part of the repeated results.
+  demonstration and is not part of the repeated results. It ran with the
+  Gazebo window open, and the node processed only 63 % of the frames
+  (about 91 % headless), so its numbers are not comparable with the
+  measured runs.
+- **A person too close to see.** In the teleop run I drove the camera up
+  to the person's feet. With only a leg in view the detector stayed under
+  the 0.5 threshold and the frame state was CLEAR. The repeated runs never
+  bring the person that close (largest GT box 301 of 480 px), so they do
+  not measure this case.
 
 ## General
 

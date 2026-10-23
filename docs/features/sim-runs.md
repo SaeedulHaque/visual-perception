@@ -179,13 +179,70 @@ mean with the min–max range). Read them with the simulation part of
 ## Teleop demo
 
 ```
-HOST_UID=$(id -u) HOST_GID=$(id -g) RENDER_GID=$(getent group render | cut -d: -f3) \
+xhost +SI:localuser:$(whoami)      # once per login, for the Gazebo window
+HOST_UID=$(id -u) HOST_GID=$(id -g) RENDER_GID=$(getent group render | cut -d: -f3) RVP_GUI=1 \
     docker compose -f docker/compose.yaml run --rm sim docker/sim_run.sh teleop teleop_r1 120
 ```
 
-This needs an interactive terminal: no `-T`. The simulation runs in the
-background and `teleop_twist_keyboard` takes the keyboard. Its commands go
-through the command guard (speed limits, and a stop after 0.5 s without a
-key). The run ends after 120 s of sim time like the others, and is
-exported the same way. It is scored with the same code, but reported on its
-own as a single non-repeatable demo.
+The simulation runs in the background and `teleop_twist_keyboard` takes
+the terminal. With `RVP_GUI=1` the Gazebo window opens too, so I can see
+the robot and the person while driving. `sim_run.sh` refuses `RVP_GUI=1`
+in the other modes, so the measured runs stay headless.
+
+Driving:
+
+- The window takes the keyboard focus when it opens, so I click the
+  terminal before driving. Keys typed into the window do nothing.
+- `teleop_twist_keyboard` sends one command per key press, and the guard
+  stops the robot 0.5 s after the last command, so a key has to be held
+  down. Only `u i o j k l m , .` drive; the arrow keys do nothing.
+- Ctrl-C stops the whole run, which then does not count. The run ends by
+  itself after 120 s of sim time. Closing the window does not end it.
+- The launch log goes to `data/raw/sim/logs/launch_<run>.log`.
+
+The commands go through the command guard like the scripted drive
+(speed limits, stop after 0.5 s without a command). The run is exported
+and scored with the same code, and reported on its own as a single
+non-repeatable demo. The committed run, `teleop_r1`, was recorded this way.
+
+### Teleop result
+
+From `results/sim/summary/summary.md` (live node only, no replay):
+
+| | baseline | filtered |
+|---|---|---|
+| recall | 0.847 | 0.851 |
+| precision | 0.942 | 0.905 |
+| GT events detected | 9 of 11 | 9 of 11 |
+| false-STOP episodes | 2 | 1 |
+
+- The robot drove 3.8 m along its path. It finished at (2.71, 0.10) m,
+  facing back towards its start (yaw −3.11 rad).
+- The two missed events are the two shortest GT events, 0.36 s and
+  0.20 s long (9 and 4 processed frames).
+- All 14 frames where the frame state was STOP and the GT was CLEAR have a
+  GT box centre within 0.035 of the ROI border (0.30 or 0.70) of the image
+  width: the detected box and the GT box fall on different sides of it.
+- Of the 41 GT-STOP frames with a CLEAR frame state, most sit at the same
+  border. Two groups do not:
+  - **Too close (92.4–92.8 s).** I drove the camera right up to the
+    person. Only a leg and a foot are in view, the GT box fills the
+    image, and the detector scores the person at 0.49 and below, under the
+    0.5 threshold. The frame state is CLEAR with a person directly in
+    front of the robot. The filter still held STOP for part of it.
+  - **At the height limit (103.1–103.8 s).** The person is far away and
+    the GT box is about 0.27 of the image height, just over the 0.25
+    rule. The detected box is a little shorter and falls under it.
+- The node processed 63 % of the frames (about 91 % in the headless
+  runs). Inference took 46.1 ms on average (about 28 ms headless) and the
+  image age at callback start was 30.8 ms (11–13 ms headless). The Gazebo
+  window was open in this run and draws the scene on the same machine,
+  which is the likely cause. The teleop numbers are therefore not
+  comparable with the static and scripted runs.
+
+### Watching a run
+
+`scripts/render_sim_video.py` rebuilds the camera view from the bag with
+the GT box, the node's detections and the states drawn on each frame
+([sim-video.md](sim-video.md)). The still sheet of this run is
+`results/sim/summary/figures/frames_teleop_r1.png`.

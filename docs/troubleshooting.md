@@ -343,3 +343,33 @@ Grouped by phase; within a phase, roughly in the order I hit them.
   clock). The first runs were discarded and all runs redone.
 - **Avoid:** when a latency comes out shorter than a component inside it,
   check which clock each end was read from.
+
+### No window in the teleop run
+- **Symptom:** the teleop run started, but no Gazebo window appeared.
+- **Cause:** Gazebo runs as a headless server (`gz sim -s
+  --headless-rendering`). The camera sensor needs no display, so nothing
+  draws a window.
+- **Fix:** `RVP_GUI=1` starts the Gazebo GUI client as well. The container
+  gets the X socket and `DISPLAY`, and the host allows it once with
+  `xhost +SI:localuser:$(whoami)`.
+
+### Ctrl-C ends the teleop run
+- **Symptom:** the first teleop run stopped at 22.9 s of the planned 120 s,
+  with no `run_info.json` and no export.
+- **Cause:** most likely Ctrl-C. `sim_run.sh` starts the simulation in the
+  background of the same script as the keyboard teleop, in the same
+  process group, so Ctrl-C in the terminal stops both.
+- **Fix:** stop the robot with `k` and let the run end by itself. The launch
+  log now goes to `data/raw/sim/logs/`, so it survives the container.
+
+### Keys that do nothing in the teleop run
+- **Symptom:** with the Gazebo window open, the robot did not move at all.
+  The bag held only six `/rvp/cmd_vel` messages, all zero, sent when the
+  keyboard teleop shut down.
+- **Cause:** the Gazebo window takes the keyboard focus when it opens, so
+  the keys went to the window instead of the terminal. Separately,
+  `teleop_twist_keyboard` sends one command per key press and the command
+  guard stops the robot 0.5 s after the last command, so a single tap
+  moves the robot only about 5 cm.
+- **Fix:** click the terminal before driving and hold the keys down. Only
+  `u i o j k l m , .` drive; the arrow keys do nothing.

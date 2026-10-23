@@ -106,6 +106,7 @@ data/raw/sim/sequences/<run>/
   stamps.csv            frame number -> image stamp (ns)
   poses.csv             true robot pose samples
   camera.json           intrinsics
+  detections.csv        the node's published detections (for the video, sim-video.md)
   export.json           frame count, fps, missing frames
   seqinfo.ini           written by scripts/make_sim_gt.py (host)
   gt/gt.txt             MOT17 columns; visibility 1 (no occlusion)

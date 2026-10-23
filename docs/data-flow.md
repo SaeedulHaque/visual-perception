@@ -217,12 +217,13 @@ replaced, independently.
      sim_measure     ──► sim_geometry
      sim_eval        ──► sequence_metrics, metrics, sim_export
      sim_report      ──► plots, summary
+     sim_video       ──► decision (Roi)
      ros_image, drive_profile   (numpy, yaml only)
 
  ROS package rvp_ros (container only) ──► core package
      perception_node ──► experiment_runner.process_frame, ros_image, temporal_filter
      scripted_drive, cmd_guard ──► drive_profile
-     export_bag      ──► ros_image, sim_export
+     export_bag      ──► ros_image, sim_export, sim_video
 ```
 
 Rules the layout follows:
@@ -268,6 +269,7 @@ Rules the layout follows:
 | `ros_image` + `perception_node` | camera image → detections and safety state | numpy instead of cv_bridge; depth-1 QoS; steady-clock watchdog; same `process_frame` as offline | [perception-node](features/perception-node.md) |
 | `drive_profile` + `scripted_drive`, `cmd_guard` | motion that never depends on perception | sim-time profile; speed clamps; 0.5 s command timeout; zero on shutdown | [scripted-drive](features/scripted-drive.md) |
 | `sim_eval`, `sim_report` + launch, monitor | repeated runs, replay, scoring | world starts paused; fresh container per repeat; live and replay scored separately | [sim-runs](features/sim-runs.md) |
+| `sim_video` + `render_sim_video.py` | annotated video of a run | boxes as published by the node, not re-detected; dropped frames shown as held | [sim-video](features/sim-video.md) |
 
 ## 7. One frame's journey
 
@@ -308,7 +310,7 @@ would read `status=MISSING`, `baseline_state=UNKNOWN`,
 ## 8. Tests
 
 ```
-uv run pytest            # 233 tests, a few seconds, no model weights, ROS or network needed
+uv run pytest            # 243 tests, a few seconds, no model weights, ROS or network needed
 uv run ruff check .      # lint
 ```
 
@@ -340,6 +342,7 @@ uv run ruff check .      # lint
 | `test_ros_image.py` | 10 | rgb8 → BGR, bgr8, mono8, row padding, writable copy, unsupported encodings and short buffers rejected |
 | `test_drive_profile.py` | 9 | segment commands, zero before and after, clamping, YAML load, invalid segments, guard zero before commands, clamped forwarding, stop after the timeout |
 | `test_sim_eval.py` | 8 | live rows joined by stamp, fps from processed frames, live/replay agreement, final pose, run names, spread over repeats, missing metrics as NaN |
+| `test_sim_video.py` | 10 | banner added and input untouched, ROI lines, GT box, detection colour by class and threshold, banner colours per state, held frames, detections and GT boxes read back |
 
 **Inside the container.** `docker/check_container.sh` runs the same suite
 under the container's NumPy 1.26 and OpenCV 4.11, checks the ROS message

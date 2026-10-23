@@ -47,6 +47,11 @@ cv_bridge's own NumPy and OpenCV build.
   (`--headless-rendering`); the camera sensor needs no display.
   `RVP_SOFTWARE_RENDERING=1` switches to Mesa's software renderer if the
   GPU cannot be used.
+- `/tmp/.X11-unix` and `DISPLAY` are passed in for the optional Gazebo
+  window (`RVP_GUI=1`, teleop runs only). On a Wayland desktop it opens on
+  XWayland. The host has to allow local processes of my user once per
+  login: `xhost +SI:localuser:$(whoami)`. This does not open the display
+  to other users.
 - `ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST`: ROS discovery stays inside
   the container.
 - colcon writes the node scripts with `/usr/bin/python3` (the same Python
