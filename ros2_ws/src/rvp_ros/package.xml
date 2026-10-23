@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypelayout="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>rvp_ros</name>
+  <version>0.1.0</version>
+  <description>ROS 2 adapter for the robust_visual_perception core package: perception node, scripted drive, command guard, simulation launch and world.</description>
+  <maintainer email="haquesaeedul@gmail.com">Saeedul Haque</maintainer>
+  <license>AGPL-3.0-only</license>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>tf2_msgs</exec_depend>
+  <exec_depend>vision_msgs</exec_depend>
+  <exec_depend>rosbag2_py</exec_depend>
+  <exec_depend>ros_gz_sim</exec_depend>
+  <exec_depend>ros_gz_bridge</exec_depend>
+  <exec_depend>turtlebot3_gazebo</exec_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
