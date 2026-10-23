@@ -1,0 +1,2 @@
+HOST_UID=$(id -u) HOST_GID=$(id -g) RENDER_GID=$(getent group render | cut -d: -f3) RVP_GUI=1 docker compose -f docker/compose.yaml run --rm sim docker/sim_run.sh teleop teleop_r1 120
+docker compose -f docker/compose.yaml run --rm -T sim ros2 run rvp_ros export_bag --bag /work/data/raw/sim/bags/teleop_r1 --out /work/data/raw/sim/sequences/teleop_r1

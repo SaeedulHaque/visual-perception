@@ -1,0 +1,9 @@
+{
+  "frames": 3643,
+  "fps": 30.303,
+  "missing_frames": 0,
+  "first_stamp_s": 0.0,
+  "last_stamp_s": 120.187,
+  "robot_pose_samples": 12022,
+  "detections": 1113
+}
