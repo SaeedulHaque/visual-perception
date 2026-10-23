@@ -5,7 +5,8 @@
 
 Writes PNG frames in image-stamp order (img1/000001.png ...), stamps.csv
 (frame number and image stamp), poses.csv (true robot pose samples),
-camera.json (intrinsics from camera_info) and export.json. Ground truth is
+camera.json (intrinsics from camera_info), detections.csv (the node's
+published detections, keyed by image stamp) and export.json. Ground truth is
 computed afterwards without ROS (scripts/make_sim_gt.py).
 """
 
@@ -24,11 +25,13 @@ from rosidl_runtime_py.utilities import get_message
 
 from robust_visual_perception.ros_image import image_to_bgr
 from robust_visual_perception.sim_export import frame_rate, stamp_gaps
+from robust_visual_perception.sim_video import DetectionRow, write_detections_csv
 from robust_visual_perception.sim_world import ROBOT_NAME
 
 IMAGE_TOPIC = "/camera/image_raw"
 INFO_TOPIC = "/camera/camera_info"
 POSE_TOPIC = "/rvp/robot_pose"
+DETECTIONS_TOPIC = "/perception/detections"
 
 
 def _stamp_ns(header) -> int:
@@ -43,7 +46,9 @@ def read_bag(bag: Path):
     )
     types = {t.name: get_message(t.type) for t in reader.get_all_topics_and_types()}
     reader.set_filter(
-        rosbag2_py.StorageFilter(topics=[IMAGE_TOPIC, INFO_TOPIC, POSE_TOPIC])
+        rosbag2_py.StorageFilter(
+            topics=[IMAGE_TOPIC, INFO_TOPIC, POSE_TOPIC, DETECTIONS_TOPIC]
+        )
     )
     while reader.has_next():
         topic, data, _ = reader.read_next()
@@ -60,6 +65,7 @@ def main() -> None:
     img_dir.mkdir(parents=True, exist_ok=True)
     images: list[tuple[int, Path]] = []
     pose_rows: list[list[float]] = []
+    detections: list[tuple[int, DetectionRow]] = []
     camera = None
     for topic, msg in read_bag(args.bag):
         if topic == IMAGE_TOPIC:
@@ -83,6 +89,24 @@ def main() -> None:
             pose_rows.append(
                 [_stamp_ns(msg.header) / 1e9, t.x, t.y, t.z, r.x, r.y, r.z, r.w]
             )
+        elif topic == DETECTIONS_TOPIC:
+            stamp = _stamp_ns(msg.header)
+            for d in msg.detections:
+                cx, cy = d.bbox.center.position.x, d.bbox.center.position.y
+                hypothesis = d.results[0].hypothesis
+                detections.append(
+                    (
+                        stamp,
+                        DetectionRow(
+                            hypothesis.class_id,
+                            round(float(hypothesis.score), 4),
+                            round(cx - d.bbox.size_x / 2, 2),
+                            round(cy - d.bbox.size_y / 2, 2),
+                            round(cx + d.bbox.size_x / 2, 2),
+                            round(cy + d.bbox.size_y / 2, 2),
+                        ),
+                    )
+                )
     if camera is None or not images or not pose_rows:
         raise SystemExit(
             f"bag is missing data: camera_info={camera is not None}, "
@@ -104,6 +128,7 @@ def main() -> None:
         writer.writerow(["stamp_s", "x", "y", "z", "qx", "qy", "qz", "qw"])
         writer.writerows(poses.tolist())
     (args.out / "camera.json").write_text(json.dumps(camera, indent=2))
+    write_detections_csv(args.out / "detections.csv", sorted(detections))
     summary = {
         "frames": len(stamps),
         "fps": round(frame_rate(stamps), 3),
@@ -111,6 +136,7 @@ def main() -> None:
         "first_stamp_s": stamps[0] / 1e9,
         "last_stamp_s": stamps[-1] / 1e9,
         "robot_pose_samples": len(poses),
+        "detections": len(detections),
     }
     (args.out / "export.json").write_text(json.dumps(summary, indent=2))
     print(json.dumps(summary))
