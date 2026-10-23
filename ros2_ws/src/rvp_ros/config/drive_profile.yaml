@@ -1,0 +1,14 @@
+# Scripted drive, keyed to sim time from the start of the run (t = 0).
+# Speeds stay within the limits (0.15 m/s, 0.5 rad/s); anything above is
+# clamped. After the last segment the robot gets zero commands.
+segments:
+  - {duration_s: 5.0, linear_x: 0.0, angular_z: 0.0}       # wait
+  - {duration_s: 15.0, linear_x: 0.10, angular_z: 0.0}     # forward 1.5 m, towards the near crossing
+  - {duration_s: 10.0, linear_x: 0.0, angular_z: 0.0}      # watch the path
+  - {duration_s: 3.1416, linear_x: 0.0, angular_z: 0.5}    # turn left about 90 degrees
+  - {duration_s: 10.0, linear_x: 0.0, angular_z: 0.0}      # look along the side of the loop
+  - {duration_s: 3.1416, linear_x: 0.0, angular_z: -0.5}   # turn back
+  - {duration_s: 15.0, linear_x: -0.10, angular_z: 0.0}    # reverse to the start
+  - {duration_s: 10.0, linear_x: 0.0, angular_z: 0.0}      # wait
+  - {duration_s: 20.0, linear_x: 0.08, angular_z: 0.10}    # slow arc to the left
+  - {duration_s: 20.0, linear_x: -0.08, angular_z: -0.10}  # retrace the arc

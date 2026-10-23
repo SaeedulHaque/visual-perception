@@ -1,0 +1,15 @@
+# Python packages for the ROS container (installed on top of ROS's own
+# system packages). Same model stack as the host lock file; NumPy stays at
+# the Ubuntu 24.04 version because ROS Jazzy's message packages are built
+# against NumPy 1.x, which in turn limits OpenCV and matplotlib.
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.14.1+cpu
+torchvision==0.29.1+cpu
+ultralytics==8.4.183
+numpy==1.26.4
+opencv-python
+pyyaml==6.0.3
+psutil==7.2.2
+pycocotools==2.0.11
+matplotlib
+pytest==9.1.1

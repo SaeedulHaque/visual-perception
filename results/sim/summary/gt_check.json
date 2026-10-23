@@ -1,0 +1,12 @@
+{
+  "sequences": [
+    "static_r1",
+    "scripted_r1"
+  ],
+  "step": 10,
+  "n_checked": 730,
+  "n_frames": 441,
+  "iou_median": 0.7660800103045086,
+  "iou_p10": 0.6717624149433051,
+  "state_agreement": 0.9945205479452055
+}

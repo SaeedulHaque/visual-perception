@@ -39,6 +39,20 @@ The first line should print a `+cpu` torch version and `False`.
 `uv run` runs a command inside `.venv` without activating it. Activating
 works too: `source .venv/bin/activate`.
 
+## ROS 2 simulation (Phase 3)
+
+The simulation needs Docker with Compose v2 and about 7 GB of disk for the
+image. Nothing ROS-related is installed on the host:
+
+```
+docker compose -f docker/compose.yaml build
+HOST_UID=$(id -u) HOST_GID=$(id -g) RENDER_GID=$(getent group render | cut -d: -f3) \
+    docker compose -f docker/compose.yaml run --rm -T sim docker/check_container.sh
+```
+
+What the image contains and why: [features/ros2-container.md](features/ros2-container.md).
+Running the simulation: [features/sim-runs.md](features/sim-runs.md).
+
 ## Notes
 
 - `uv` installed from snap: `uv run` exits with code 120 when its output is

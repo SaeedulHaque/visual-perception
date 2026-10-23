@@ -18,6 +18,7 @@ results/*
 !results/image_main/
 !results/sequence_main/
 !results/sequence_faults/
+!results/sim/
 results/**/*.npz
 *.json.gz
 

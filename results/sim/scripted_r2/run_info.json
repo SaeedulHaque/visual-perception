@@ -1,0 +1,8 @@
+{
+  "completed": true,
+  "duration_s": 120.0,
+  "ready_wait_s": 2.0,
+  "wall_s": 122.428,
+  "sim_s": 120.0,
+  "real_time_factor": 0.9802
+}

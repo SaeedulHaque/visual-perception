@@ -8,7 +8,9 @@ Tests: `tests/test_image_source.py`
 Every later stage needs the same thing: a stream of frames with an id, the
 pixels, and an optional timestamp. Wrapping that in one small type keeps the
 detector and decision code independent of where frames come from (COCO
-images now, MOT17 sequences in Phase 2, rosbag frames in Phase 3).
+images in Phase 1, MOT17 sequences in Phase 2, and in Phase 3 the frames of
+a recorded bag, exported to an image folder in MOT17 layout and read like
+any other sequence).
 
 The other job of this module is to make bad input visible. In a robot, a
 frame that never arrives is information: the system does not know what is

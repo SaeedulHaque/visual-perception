@@ -9,8 +9,9 @@ Grouped by phase; within a phase, roughly in the order I hit them.
 ### No ROS 2 packages for the host OS
 - **Symptom:** the machine runs Ubuntu 26.04. ROS 2 Jazzy ships binary
   packages for Ubuntu 24.04 only.
-- **Fix:** ROS 2 and Gazebo will run in Docker (Phase 3); the core package
-  never depends on ROS.
+- **Fix:** ROS 2 and Gazebo run in Docker (Phase 3,
+  [ros2-container.md](features/ros2-container.md)); the core package never
+  depends on ROS.
 - **Avoid:** check the ROS distribution's supported OS list before planning
   a native install. Keep perception code ROS-free so it runs anywhere.
 
@@ -230,3 +231,145 @@ Grouped by phase; within a phase, roughly in the order I hit them.
   top of each other, the default marker was hidden, and the title was cut.
 - **Fix:** identical results share one point with a combined label; the
   default is drawn last; shorter title. Always open the figure and look.
+
+## Phase 3: ROS 2 and Gazebo
+
+### Old Gazebo servers in a reused container
+- **Symptom:** in a scratch container, camera stamps alternated between two
+  clocks (about 18 s and 50 s). A Gazebo server from an earlier command was
+  still running, and both servers published on the same topics.
+  `pkill -f "gz sim"` inside `bash -c "... gz sim ..."` killed the shell
+  itself, because the pattern matched its own command line.
+- **Fix:** every run gets a fresh container (`docker compose run --rm`).
+- **Avoid:** never reuse a container between simulation runs; kill
+  processes from a separate `docker exec`.
+
+### Spawning a robot into a custom world
+- **Symptom:** `ros_gz_sim create` waited forever for
+  `/world/<name>/create`.
+- **Cause:** that service comes from the `UserCommands` system, which a
+  hand-written world has to load itself.
+- **Fix:** in the end the robot became part of the world file, so nothing
+  is spawned at run time and the world can start paused.
+
+### No actor pose, and nameless poses
+- **Symptom:** the walking actor never appears in the world's pose topics.
+  The bridged `dynamic_pose/info` messages had empty frame names and zero
+  stamps, so the robot could not be picked out either.
+- **Fix:**
+  - The actor's position comes from the scripted path that generates its
+    waypoints.
+  - The robot gets a PosePublisher (added inside the world's `<include>`),
+    which publishes one named, sim-time-stamped pose.
+- **Avoid:** echo a topic in the container (`gz topic -e`) before building
+  on it, and check the stamps and names after the bridge, not only in
+  Gazebo.
+
+### Node scripts that cannot see the venv
+- **Symptom:** `ModuleNotFoundError: No module named 'ultralytics'` from
+  the perception node, although the venv has it.
+- **Cause:** colcon writes the node scripts with `#!/usr/bin/python3`, the
+  system interpreter colcon itself runs on.
+- **Fix:** the venv's `site-packages` is on `PYTHONPATH` in the image (same
+  Python 3.12).
+
+### NumPy 2 and ROS Jazzy
+- **Risk:** the ROS Jazzy Python message packages are compiled against
+  NumPy 1.x and do not load under NumPy 2. Installing the host's model
+  stack (NumPy 2.5) into the container would break `rclpy` message imports.
+- **Fix:** the container keeps NumPy 1.26.4. OpenCV is limited to a release
+  that supports it. The core package's pin was relaxed to `numpy>=1.26`,
+  and the core test suite runs inside the container too. The node converts
+  images with numpy instead of `cv_bridge`.
+
+### A recorder waiting for a clock that never comes
+- **Symptom:** the run monitor gave up after 180 s: "nodes not ready in
+  time".
+- **Cause:** `ros2 bag record --use-sim-time` waits for `/clock` before
+  subscribing, and the paused world publishes no clock. The monitor waits
+  for the recorder before unpausing: a deadlock.
+- **Fix:** record with wall-clock receive times. Header stamps carry sim
+  time anyway.
+
+### Build context snapshots
+- **Symptom:** a fresh image lacked a node I had just written.
+- **Cause:** `docker compose build` sends the build context when the build
+  starts; files written during a long build are not in it.
+- **Fix:** rebuild after editing `ros2_ws/` or `docker/`. The later layers
+  rebuild in seconds, because the apt and pip layers are cached.
+
+### A check script that failed on success
+- **Symptom:** the headless camera check reported "no camera frame",
+  although Gazebo was publishing.
+- **Cause:** `gz topic -e | grep -q ...` under `set -o pipefail`: `grep -q`
+  exits at the first match, `gz topic` dies of SIGPIPE, and the pipeline
+  counts as failed.
+- **Fix:** save the message to a file, then grep the file.
+
+### Fuel download into a missing directory
+- **Symptom:** the image build failed at the Fuel step with "is not a
+  directory". The model was downloaded, but not where `GZ_FUEL_CACHE_PATH`
+  pointed.
+- **Fix:** create the cache directory before `gz fuel download`.
+
+### A design rule that cannot fire
+- **Symptom:** on paper, the design's corridor ROI (`y ≥ 0.30`) would never
+  mark a person as STOP in the simulation.
+- **Cause:** the TurtleBot3 camera sits about 0.1 m above the ground. A
+  standing person's box runs from near the image top to just below the
+  horizon, so its centre is always in the upper third.
+- **Fix:** the sim ROI drops the vertical band and keeps the design's x
+  band and minimum height. This was fixed from geometry before any run.
+- **Avoid:** check a rule against the camera geometry before reusing it
+  for a new camera.
+
+### Background frames for the size measurement
+- **Symptom:** the person-size measurement found no background frames.
+- **Cause:** the loop keeps the person within about 46° of the camera axis
+  at all times. A "15° outside the field of view" margin excluded every
+  frame.
+- **Fix:** a 5° margin. That is still enough for the whole body to be out
+  of view at the loop's corners.
+
+### A latency shorter than the work inside it
+- **Symptom:** in the first set of runs, the node's "end-to-end" latency
+  (sim time at publish minus the image stamp) had a median of 6 ms, while
+  the callback alone took a median of 29 ms.
+- **Cause:** the node's sim clock is updated by `/clock` messages, handled
+  by the same single-threaded executor as the images. During a callback
+  the clock stands still, so the measurement ended where processing began.
+- **Fix:** two measurements, each on a clock that moves: the image's age
+  when processing starts (sim clock), and the processing time (wall
+  clock). The first runs were discarded and all runs redone.
+- **Avoid:** when a latency comes out shorter than a component inside it,
+  check which clock each end was read from.
+
+### No window in the teleop run
+- **Symptom:** the teleop run started, but no Gazebo window appeared.
+- **Cause:** Gazebo runs as a headless server (`gz sim -s
+  --headless-rendering`). The camera sensor needs no display, so nothing
+  draws a window.
+- **Fix:** `RVP_GUI=1` starts the Gazebo GUI client as well. The container
+  gets the X socket and `DISPLAY`, and the host allows it once with
+  `xhost +SI:localuser:$(whoami)`.
+
+### Ctrl-C ends the teleop run
+- **Symptom:** the first teleop run stopped at 22.9 s of the planned 120 s,
+  with no `run_info.json` and no export.
+- **Cause:** most likely Ctrl-C. `sim_run.sh` starts the simulation in the
+  background of the same script as the keyboard teleop, in the same
+  process group, so Ctrl-C in the terminal stops both.
+- **Fix:** stop the robot with `k` and let the run end by itself. The launch
+  log now goes to `data/raw/sim/logs/`, so it survives the container.
+
+### Keys that do nothing in the teleop run
+- **Symptom:** with the Gazebo window open, the robot did not move at all.
+  The bag held only six `/rvp/cmd_vel` messages, all zero, sent when the
+  keyboard teleop shut down.
+- **Cause:** the Gazebo window takes the keyboard focus when it opens, so
+  the keys went to the window instead of the terminal. Separately,
+  `teleop_twist_keyboard` sends one command per key press and the command
+  guard stops the robot 0.5 s after the last command, so a single tap
+  moves the robot only about 5 cm.
+- **Fix:** click the terminal before driving and hold the keys down. Only
+  `u i o j k l m , .` drive; the arrow keys do nothing.

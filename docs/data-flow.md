@@ -17,8 +17,8 @@ cameras do not deliver clean images. This project measures three things:
 3. **Stability.** Whether a temporal filter turns a flickering per-frame
    STOP / CLEAR signal into a stable one, and how much delay it adds.
 
-Everything is measured against ground truth (COCO, MOT17, and later the
-simulator), and every reported number has to come from a saved run.
+Everything is measured against ground truth (COCO, MOT17, and the Gazebo
+simulation), and every reported number has to come from a saved run.
 
 ## 2. Project flow (phases)
 
@@ -29,8 +29,9 @@ Phase 1  Offline pipeline  core package + tests + smoke test          ◄── 
    │
 Phase 2  Experiments       COCO image experiment, MOT17 sequence experiment,  ◄── done
    │                       metrics, filter sweep, faults, plots, summaries
-Phase 3  Robotics          ROS 2 Jazzy + Gazebo Harmonic in Docker; TurtleBot3
-   │                       camera ─► perception node using the same core package
+Phase 3  Robotics          ROS 2 Jazzy + Gazebo Harmonic in Docker; TurtleBot3  ◄── done
+   │                       camera ─► perception node using the same core package,
+   │                       repeated runs, bag replay through the offline runner
 Phase 4  GPU comparison    same benchmark on a second machine (CPU vs GPU)
    │
 Phase 5  Report            README results table, clean re-run of all commands
@@ -132,6 +133,33 @@ recomputed and checked from the saved files.
 The fault run (`configs/sequence_faults.yaml`) is the same loop with 2 %
 MISSING and 1 % ERROR frames, evaluated with the main run's adopted setting.
 
+### 3.3 Simulation (ROS 2 + Gazebo, Phase 3)
+
+```
+ configs/sim/world.yaml ──► make_sim_world.py ──► worlds/inspection.sdf (person loop waypoints)
+
+ run_sim.py: one fresh container per repeat ──► docker/sim_run.sh ──► sim.launch.py
+ ┌──────────────────────────────── container (ROS 2 Jazzy) ────────────────────────────────┐
+ │ Gazebo (headless, starts paused) ── camera 30 Hz, robot pose ──► ros_gz_bridge          │
+ │      ▲ /cmd_vel                         │ /camera/image_raw      │ /rvp/robot_pose       │
+ │  cmd_guard ◄── /rvp/cmd_vel ◄── scripted_drive (profile, sim time) or keyboard teleop   │
+ │                                         ▼                        │                      │
+ │  perception_node: image_to_bgr ─► process_frame (clean, sim ROI) ─► PersistenceFilter   │
+ │      ├─► /perception/detections, /perception/safety_state                               │
+ │      └─► results/sim/<run>/live_frames.csv                                              │
+ │  ros2 bag record ─► data/raw/sim/bags/<run>/        run_monitor: unpause, end at 120 s  │
+ │  export_bag ─► data/raw/sim/sequences/<run>/  (PNG frames, stamps, poses, camera)       │
+ └─────────────────────────────────────────────────────────────────────────────────────────┘
+ host:
+   make_sim_gt.py: person path + true robot pose + camera ─► person_box ─► gt.txt, frames.csv
+   run_sequence_experiment.py --config configs/sim_replay.yaml  (Phase 2 runner, every frame)
+   evaluate_sim.py: live (node log) and replay vs GT ─► results/sim/summary/
+```
+
+The node and the replay share `process_frame`, so the same frame gives
+the same per-frame decision in both, which the evaluation checks frame by
+frame.
+
 ## 4. What travels between stages
 
 | From → To | Type | Contents |
@@ -181,6 +209,21 @@ replaced, independently.
      sequence_metrics ─► metrics, mot17 (events), temporal_filter
      sequence_eval   ──► sequence_metrics, mot17, config
      plots, summary     read aggregate CSVs only
+
+ Phase 3 additions (core, no ROS)
+     sim_geometry    ──► decision (Roi)
+     sim_world       ──► sim_geometry
+     sim_export      ──► sim_geometry, mot17 (SeqInfo)
+     sim_measure     ──► sim_geometry
+     sim_eval        ──► sequence_metrics, metrics, sim_export
+     sim_report      ──► plots, summary
+     sim_video       ──► decision (Roi)
+     ros_image, drive_profile   (numpy, yaml only)
+
+ ROS package rvp_ros (container only) ──► core package
+     perception_node ──► experiment_runner.process_frame, ros_image, temporal_filter
+     scripted_drive, cmd_guard ──► drive_profile
+     export_bag      ──► ros_image, sim_export, sim_video
 ```
 
 Rules the layout follows:
@@ -192,7 +235,8 @@ Rules the layout follows:
   imports `ultralytics`. Everything else talks to the `Detector` protocol
   (`detect(image) -> DetectionResult`).
 - **No ROS in the core.** The package imports and runs without ROS. The
-  Phase 3 node will import these modules, not the other way round.
+  Phase 3 nodes import these modules, not the other way round; everything
+  they need that can be tested without ROS lives in the core.
 - **Scripts are thin.** They parse arguments, build objects, and call one
   package function. All logic that matters lives in `src/` where it is
   tested.
@@ -220,6 +264,12 @@ Rules the layout follows:
 | `sequence_metrics` | stream metrics, sweep, adoption | onset/release delays, transitions, false-STOP episodes; dominance rule | [metrics](features/metrics.md) |
 | `sequence_eval` | aggregate one sequence run | sweep on tuning sequence only; adopted setting applied unchanged | [sequence-experiment](features/sequence-experiment.md) |
 | `plots`, `summary` | figures and `summary.md` | generated from CSVs only; mechanical hypothesis checks | [image-experiment](features/image-experiment.md) |
+| `sim_geometry`, `sim_world` | the person's loop, camera model, GT box, world file | one path definition for the world and the GT; robot pose from the simulator, not odometry; sim ROI without the vertical band | [sim-ground-truth](features/sim-ground-truth.md) |
+| `sim_export`, `sim_measure` | bag export to MOT17 layout; person size | GT per frame from its own stamp; person size from silhouettes, not detections | [sim-ground-truth](features/sim-ground-truth.md) |
+| `ros_image` + `perception_node` | camera image → detections and safety state | numpy instead of cv_bridge; depth-1 QoS; steady-clock watchdog; same `process_frame` as offline | [perception-node](features/perception-node.md) |
+| `drive_profile` + `scripted_drive`, `cmd_guard` | motion that never depends on perception | sim-time profile; speed clamps; 0.5 s command timeout; zero on shutdown | [scripted-drive](features/scripted-drive.md) |
+| `sim_eval`, `sim_report` + launch, monitor | repeated runs, replay, scoring | world starts paused; fresh container per repeat; live and replay scored separately | [sim-runs](features/sim-runs.md) |
+| `sim_video` + `render_sim_video.py` | annotated video of a run | boxes as published by the node, not re-detected; dropped frames shown as held | [sim-video](features/sim-video.md) |
 
 ## 7. One frame's journey
 
@@ -260,7 +310,7 @@ would read `status=MISSING`, `baseline_state=UNKNOWN`,
 ## 8. Tests
 
 ```
-uv run pytest            # 174 tests, a few seconds, no model weights or network needed
+uv run pytest            # 243 tests, a few seconds, no model weights, ROS or network needed
 uv run ruff check .      # lint
 ```
 
@@ -285,6 +335,19 @@ uv run ruff check .      # lint
 | `test_sequence_eval.py` | 3 | baseline and filtered rows, sweep only on the tuning sequence, adopted rows only when the setting changed |
 | `test_summary_and_plots.py` | 3 | monotonic check text, image counts and fault rates read from data, H3 check text, figure files written |
 | `test_compare.py` | 7 | timing columns recognised, identical results match while timing is reported separately, differences above tolerance reported, small ones accepted, only shared rows compared, NaN equals NaN, nothing in common is not a match |
+| `test_sim_geometry.py` | 19 | hand-computed projection of a person ahead, far, behind, partly behind, out of view and at the border; camera yaw and mount offset; sim ROI; pose interpolation; the person's loop is linear, periodic and still while turning; waypoints |
+| `test_sim_world.py` | 4 | required Gazebo systems, waypoints equal the path, robot include with its pose publisher, committed world equals the config |
+| `test_sim_export.py` | 6 | GT box follows the person, a dropped frame does not shift GT, fps and gap count, written sequence reads back with the MOT17 parsers, names kept, GT built from a raw export |
+| `test_sim_measure.py` | 3 | silhouette of a changed region, none without change, back-projection at a known distance |
+| `test_ros_image.py` | 10 | rgb8 → BGR, bgr8, mono8, row padding, writable copy, unsupported encodings and short buffers rejected |
+| `test_drive_profile.py` | 9 | segment commands, zero before and after, clamping, YAML load, invalid segments, guard zero before commands, clamped forwarding, stop after the timeout |
+| `test_sim_eval.py` | 8 | live rows joined by stamp, fps from processed frames, live/replay agreement, final pose, run names, spread over repeats, missing metrics as NaN |
+| `test_sim_video.py` | 10 | banner added and input untouched, ROI lines, GT box, detection colour by class and threshold, banner colours per state, held frames, detections and GT boxes read back |
+
+**Inside the container.** `docker/check_container.sh` runs the same suite
+under the container's NumPy 1.26 and OpenCV 4.11, checks the ROS message
+imports and waits for a headless camera frame
+([ros2-container.md](features/ros2-container.md)).
 
 **Checking against the reference runs.** `scripts/compare_runs.py`
 compares a re-run's `aggregate.csv` with a committed run: accuracy must
@@ -323,6 +386,10 @@ check, not results.
 | software | `uv.lock` pins every package; `env.json` records versions and git commit |
 | hardware | `env.json` records CPU, cores, RAM, torch threads |
 | thresholds | fixed in the design before any run, never tuned on evaluation data |
+| simulation start | world loads paused with the robot in it; unpaused only when every node is ready, so each run starts at sim time 0 |
+| simulation repeats | fresh container per repeat, fixed Gazebo seed; spread over 3 repeats reported, not claimed identical |
+| simulation replay | bags kept with SHA-256 in `data/manifests/sim_bags.csv`; replaying a bag is bit-exact (checked by a second replay) |
+| container software | `docker/requirements.txt` pins the model stack; each sim run's `env.json` records the image id and versions |
 
 ## 10. Where to start reading
 
@@ -332,7 +399,10 @@ check, not results.
    [troubleshooting.md](troubleshooting.md) lists the problems met on the
    way and how they were solved.
 4. `src/robust_visual_perception/experiment_runner.py`: the whole pipeline
-   in one function; `sequence_runner.py` for the video version.
-5. `results/*/summary.md`: the generated results.
+   in one function; `sequence_runner.py` for the video version;
+   `ros2_ws/src/rvp_ros/rvp_ros/perception_node.py` for the same step as a
+   ROS 2 node.
+5. `results/*/summary.md` and `results/sim/summary/summary.md`: the
+   generated results.
 6. `tests/test_temporal_filter.py`: the filter's behaviour as readable
    input → output strings.

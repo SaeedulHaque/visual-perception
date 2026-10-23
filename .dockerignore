@@ -1,0 +1,5 @@
+# Only docker/ and ros2_ws/ are copied into the image; the repository is
+# mounted at run time.
+*
+!docker/
+!ros2_ws/

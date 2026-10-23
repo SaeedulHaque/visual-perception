@@ -317,6 +317,23 @@ Every condition uses the identical set and order of source frames.
 - Fallback: if the TB3 packages do not build or run on Jazzy within the
   troubleshooting cap, replace the robot with a fixed camera model in the
   same world; the rest of Phase 3 is unchanged.
+- *Applied in Phase 3* (details in `docs/plans/phase-3-ros2-sim.md` and
+  `docs/features/`):
+  - TB3 binary packages exist for Jazzy, so no source build and no fallback
+    were needed. The robot is part of the world file (same ROBOTIS model
+    description, no spawn launch), so the world loads paused and every run
+    starts from sim time 0.
+  - Gazebo does not publish the actor's pose. The actor's GT position comes
+    from the scripted path that also generates the world's waypoints. The
+    robot's true pose comes from a PosePublisher on the robot model.
+  - The person's size for the GT box was measured from rendered silhouettes.
+    The vertical ROI band was dropped, because the camera is about 0.1 m
+    high and box centres are always in the upper image half. Sim ROI: `x
+    0.30–0.70, height ≥ 0.25`.
+  - The node uses the filter setting adopted in Phase 2 (2/3/3) and
+    converts images with numpy instead of `cv_bridge`.
+  - The container keeps NumPy 1.26, which ROS Jazzy's message packages
+    need.
 - `perception_node`: subscribes to the bridged camera topic (actual name
   read from `ros2 topic list`), sensor-data QoS with depth 1 so stale frames
   are dropped rather than queued; calls the core detector + decision +
@@ -375,6 +392,16 @@ Created only when its phase is reached.
 
 Each phase starts with a short brief and ends with an outcome report. The
 next phase starts only after that report is reviewed.
+
+Progress (each plan in `docs/plans/` has the detailed checklist):
+
+- [x] Phase 0: design approved
+- [x] Phase 1: offline pipeline, merged (PR #2)
+- [x] Phase 2: experiments, merged (PR #3)
+- [x] Phase 3: ROS 2 / Gazebo implemented, runs, replay and teleop demo
+  done
+- [ ] Phase 4: GPU comparison on Machine B
+- [ ] Phase 5: final report
 
 ## 11. Details decided during implementation
 

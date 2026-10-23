@@ -1,0 +1,21 @@
+# Simulation world: the walking person's loop and the robot's start pose.
+# The world file ros2_ws/src/rvp_ros/worlds/inspection.sdf is generated from
+# this (scripts/make_sim_world.py); the ground truth uses the same path.
+
+# Loop: near crossing 3 m in front of the robot (should be STOP), walk away,
+# far crossing at 10 m (person visible but small: should be CLEAR), walk back.
+actor:
+  corners: [[3.0, -3.0], [3.0, 3.0], [10.0, 3.0], [10.0, -3.0]]
+  speed: 1.0      # m/s
+  turn_s: 1.0     # seconds turning on the spot at each corner
+  z: 1.0          # actor pose height (mesh origin); the feet are on the ground
+
+# Waypoints this far apart (s) keep Gazebo's spline interpolation within a
+# few centimetres of the straight-segment path used for ground truth.
+waypoint_dt: 0.25
+
+# Robot spawn pose (facing +x, towards the path).
+robot:
+  x: 0.0
+  y: 0.0
+  yaw: 0.0

@@ -8,7 +8,7 @@ license-files = ["LICENSE"]
 authors = [{ name = "Saeedul Haque" }]
 requires-python = ">=3.12,<3.13"
 dependencies = [
-    "numpy>=2.0",
+    "numpy>=1.26",
     "opencv-python>=4.10",
     "pyyaml>=6.0",
     "psutil>=6.0",
@@ -50,3 +50,7 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+# The SDF template keeps one XML element per line, as in the generated world.
+"src/robust_visual_perception/sim_world.py" = ["E501"]
