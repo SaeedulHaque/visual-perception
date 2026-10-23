@@ -50,3 +50,7 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+# The SDF template keeps one XML element per line, as in the generated world.
+"src/robust_visual_perception/sim_world.py" = ["E501"]
