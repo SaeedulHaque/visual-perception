@@ -7,6 +7,10 @@ Modes: static (robot parked), scripted (drive profile), teleop (keyboard,
 run teleop_twist_keyboard separately). The run monitor unpauses the world
 once all nodes are ready and ends the launch after ``duration`` sim seconds;
 if any node exits early, the whole run is shut down.
+
+``gui:=true`` also starts the Gazebo GUI client, to watch a teleop run. It
+needs an X display and draws on the GPU, so the measured runs leave it off.
+Closing its window does not end the run.
 """
 
 import os
@@ -138,6 +142,9 @@ def _setup(context):
                 )
             )
         )
+    # Added after the exit handlers: closing the window leaves the run going.
+    if arg("gui") == "true":
+        actions.append(ExecuteProcess(cmd=["gz", "sim", "-g", "-v", "2"]))
     return actions
 
 
@@ -148,6 +155,7 @@ def generate_launch_description():
             DeclareLaunchArgument("run_name", default_value="static_r1"),
             DeclareLaunchArgument("duration", default_value="120.0"),
             DeclareLaunchArgument("seed", default_value="7"),
+            DeclareLaunchArgument("gui", default_value="false"),
             DeclareLaunchArgument("output_root", default_value="/work/results/sim"),
             DeclareLaunchArgument("bag_root", default_value="/work/data/raw/sim/bags"),
             DeclareLaunchArgument("weights", default_value="/work/models/yolo26n.pt"),

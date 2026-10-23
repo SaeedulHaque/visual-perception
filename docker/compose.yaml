@@ -18,7 +18,12 @@ services:
     shm_size: 1gb
     volumes:
       - ..:/work
+      # X display for the optional Gazebo GUI (RVP_GUI=1, teleop only).
+      - /tmp/.X11-unix:/tmp/.X11-unix:ro
     environment:
       - RVP_SOFTWARE_RENDERING=${RVP_SOFTWARE_RENDERING:-0}
+      - RVP_GUI=${RVP_GUI:-0}
+      - DISPLAY=${DISPLAY:-:0}
+      - QT_X11_NO_MITSHM=1
     stdin_open: true
     tty: true
