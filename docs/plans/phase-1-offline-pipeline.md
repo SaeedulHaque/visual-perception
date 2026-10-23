@@ -19,6 +19,24 @@ Ultralytics, OpenCV, NumPy, PyYAML, psutil, pytest, ruff.
 `pytest` is green; the license is AGPL-3.0; every feature has a page in
 `docs/features/`.
 
+## Progress
+
+Phase 1 is complete and merged into `main` (PR #2, branch
+`feature/offline-pipeline`).
+
+- [x] Task 1: project scaffold and license
+- [x] Task 2: degradations
+- [x] Task 3: image source
+- [x] Task 4: detector interface and Ultralytics wrapper
+- [x] Task 5: baseline decision and temporal filter
+- [x] Task 6: config, environment and run outputs
+- [x] Task 7: COCO subset selection and fetch script
+- [x] Task 8: runner and smoke test
+- [x] Done: the smoke test on 20 COCO images writes `per_frame.csv`
+- [x] Done: `pytest` green (100 tests at the end of Phase 1)
+- [x] Done: license switched to AGPL-3.0
+- [x] Done: a page in `docs/features/` for every feature
+
 ## Global constraints
 
 - Python 3.12 venv in `.venv/` via `uv`; host Python untouched; no `sudo pip`.
@@ -55,18 +73,19 @@ Ultralytics, OpenCV, NumPy, PyYAML, psutil, pytest, ruff.
 **Files:** create `pyproject.toml`, `.gitignore`, `src/robust_visual_perception/__init__.py`,
 `tests/__init__.py` (empty), `docs/setup.md`; replace `LICENSE` with the AGPL-3.0 text.
 
-- [ ] `pyproject.toml`: package `robust-visual-perception`, `requires-python
+- [x] `pyproject.toml`: package `robust-visual-perception`, `requires-python
   = ">=3.12,<3.13"`, src layout (hatchling), deps `numpy`, `opencv-python`,
   `pyyaml`, `psutil`, `torch`, `torchvision`, `ultralytics`; dev group
   `pytest`, `ruff`. `[tool.uv.sources]` pins torch/torchvision to the CPU
   index. Ruff line length 88.
-- [ ] `.gitignore`: `.venv/`, `__pycache__/`, `data/raw/`, `models/*.pt`,
+- [x] `.gitignore`: `.venv/`, `__pycache__/`, `data/raw/`, `models/*.pt`,
   `results/*` except committed final runs, `*.json.gz`.
-- [ ] `uv sync` creates `.venv` with Python 3.12.
-- [ ] Verify: `uv run python -c "import torch, ultralytics, cv2; print(torch.__version__, torch.cuda.is_available())"`
+- [x] `uv sync` creates `.venv` with Python 3.12.
+- [x] Verify: `uv run python -c "import torch, ultralytics, cv2; print(torch.__version__, torch.cuda.is_available())"`
   prints a `+cpu` version and `False`.
-- [ ] `docs/setup.md`: why 3.12, why CPU wheels, how to recreate the venv.
-- [ ] Suggested commits: `chore: switch license to AGPL-3.0` and `chore: add python project scaffold`.
+- [x] `docs/setup.md`: why 3.12, why CPU wheels, how to recreate the venv.
+- [x] Suggested commits: `chore: switch license to AGPL-3.0` and `chore: add python project scaffold`
+  (made as `301a2b4` and `d4b3c28`).
 
 ### Task 2: Degradations
 

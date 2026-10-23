@@ -17,6 +17,30 @@ run are complete; aggregate CSVs, figures and summaries are in `results/`;
 each metric has a unit test on a hand-computed example; every new feature
 has a page in `docs/features/`; `docs/limitations.md` exists.
 
+## Progress
+
+Phase 2 is complete and merged into `main` (PR #3, branch
+`feature/experiments`).
+
+- [x] Task 1: streaming runner, timing columns, detection store
+- [x] Task 2: image metrics
+- [x] Task 3: image experiment and evaluation (`results/image_main/`)
+- [x] Task 4: MOT17 data
+- [x] Task 5: sequence runner
+- [x] Task 6: sequence metrics, sweep, evaluation
+- [x] Task 7: figures and summaries
+- [x] Task 8: runs, hand-check, docs
+- [x] Done: image and sequence experiments run (`results/image_main/`,
+  `results/sequence_main/`)
+- [x] Done: filter sweep (`results/sequence_main/sweep.csv`, adopted 2/3/3)
+  and fault-injection run (`results/sequence_faults/`)
+- [x] Done: aggregate CSVs, figures and generated summaries committed
+- [x] Done: every metric tested on a hand-computed example; numbers
+  hand-checked (`docs/features/image-experiment.md`,
+  `docs/features/sequence-experiment.md`)
+- [x] Done: feature pages, `docs/limitations.md`, `docs/troubleshooting.md`
+- [x] Done: rerun matched the first run (largest accuracy difference 0)
+
 ## Global constraints (from the design, unchanged)
 
 - Conditions: the ten design conditions; noise base seed 1234.

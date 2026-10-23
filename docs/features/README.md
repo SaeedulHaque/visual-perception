@@ -18,3 +18,8 @@ One page per part of the pipeline, in data-flow order.
 | [Sequence experiment](sequence-experiment.md) | `sequence_runner.py`, `sequence_eval.py` |
 | Figures and summaries | `plots.py`, `summary.py`, `scripts/plot_results.py` |
 | Comparing with the reference runs | `compare.py`, `scripts/compare_runs.py` (see the "Recreate" sections in `docs/plans/`) |
+| [ROS 2 container](ros2-container.md) | `docker/` |
+| [Simulation world and ground truth](sim-ground-truth.md) | `sim_geometry.py`, `sim_world.py`, `sim_export.py`, `sim_measure.py` |
+| [Perception node](perception-node.md) | `ros_image.py`, `rvp_ros/perception_node.py` |
+| [Scripted drive and command guard](scripted-drive.md) | `drive_profile.py`, `rvp_ros/scripted_drive.py`, `rvp_ros/cmd_guard.py` |
+| [Simulation runs, replay and evaluation](sim-runs.md) | `sim.launch.py`, `run_monitor.py`, `export_bag.py`, `sim_eval.py`, `sim_report.py` |

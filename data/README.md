@@ -35,3 +35,26 @@ three selected sequences (FRCNN copy), about 270 MB. Committed outputs:
 - `manifests/mot17_roi_search.csv`: the GT-only ROI grid search.
 
 MOT17 is licensed CC BY-NC-SA 3.0 (https://motchallenge.net/data/MOT17/).
+
+## Simulation runs (Phase 3)
+
+Recorded in the ROS container, not downloaded:
+
+```
+uv run python scripts/run_sim.py --mode static --repeats 3
+uv run python scripts/run_sim.py --mode scripted --repeats 3
+uv run python scripts/make_sim_gt.py data/raw/sim/sequences/*_r*
+uv run python scripts/write_sim_manifest.py
+```
+
+- `raw/sim/bags/<run>/`: MCAP bag and its `metadata.yaml`
+- `raw/sim/sequences/<run>/`: frames, stamps, robot poses and GT in MOT17
+  layout
+- `raw/sim/logs/<run>.log`: container output
+
+Committed: `manifests/sim_bags.csv` (size and SHA-256 of every bag file).
+Check a copy with `sha256sum data/raw/sim/bags/*/*`.
+
+The walking person is the Gazebo Fuel model `Mingfei/actor`; the robot is
+the ROBOTIS TurtleBot3 Waffle Pi model from `turtlebot3_gazebo` (Apache
+2.0).

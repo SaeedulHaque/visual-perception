@@ -18,7 +18,7 @@ How everything fits together (data flow, components, tests):
 |---|---|---|
 | 1 | Offline pipeline: degradations, detector, decision, temporal filter, run outputs, smoke test | done |
 | 2 | COCO image experiment and MOT17 sequence experiment, filter sweep, fault injection | done |
-| 3 | ROS 2 Jazzy + Gazebo Harmonic (Docker), TurtleBot3 camera feeding a perception node | planned |
+| 3 | ROS 2 Jazzy + Gazebo Harmonic (Docker), TurtleBot3 camera feeding a perception node, repeated runs, bag replay | done (teleop demo still to record) |
 | 4 | CPU vs GPU latency on a second machine | planned |
 | 5 | Final report | planned |
 
@@ -28,6 +28,9 @@ Results are generated from saved runs, never typed by hand:
   750 images × 10 conditions × 3 input sizes
 - [results/sequence_main/summary.md](results/sequence_main/summary.md):
   MOT17, temporal filter, sweep and fault injection
+- [results/sim/summary/summary.md](results/sim/summary/summary.md):
+  TurtleBot3 simulation, live node and bag replay, 3 repeats each of a
+  static and a scripted-motion run ([what the runs show](docs/features/sim-runs.md#results))
 
 Read them together with [docs/limitations.md](docs/limitations.md).
 Problems I ran into while building this, and what to avoid:
@@ -44,6 +47,18 @@ image source ─► degradation ─► detector ─► decision ─► temporal 
 ```
 
 Each stage has its own page in [docs/features/](docs/features/README.md).
+
+In simulation (Phase 3), a ROS 2 node runs the same per-frame step on the
+camera of a TurtleBot3 Waffle Pi in Gazebo, while a scripted person walks
+past:
+
+```
+Gazebo camera ─► perception_node ─► /perception/detections, /perception/safety_state
+                   (same process_frame, sim ROI, 2/3/3 filter)
+rosbag ─► MOT17-layout export + GT from the simulator ─► offline sequence runner
+```
+
+The ROS parts run in Docker ([ros2-container.md](docs/features/ros2-container.md)).
 
 ## Quick start
 
@@ -67,6 +82,7 @@ Step-by-step recreation of each phase, with a check after every step:
 
 - Phase 1: [docs/plans/phase-1-offline-pipeline.md](docs/plans/phase-1-offline-pipeline.md#recreate-phase-1-and-check-it-yourself)
 - Phase 2: [docs/plans/phase-2-experiments.md](docs/plans/phase-2-experiments.md#recreate-phase-2-and-check-it-yourself)
+- Phase 3: [docs/plans/phase-3-ros2-sim.md](docs/plans/phase-3-ros2-sim.md#recreate-phase-3-and-check-it-yourself)
 
 Quick device benchmark (750 COCO images, three input sizes), compared with
 the reference machine:
@@ -84,14 +100,16 @@ and prints your latency next to the reference.
 ## Layout
 
 ```
-configs/    experiment configs (YAML)
+configs/    experiment configs (YAML); configs/sim/ for the simulation world
 data/       manifests (committed) and raw data (git-ignored)
+docker/     ROS 2 Jazzy + Gazebo image, compose file, run scripts
 docs/       design, setup, per-feature notes, plans
 models/     detector weights (downloaded, git-ignored)
 results/    run outputs (final runs only are committed)
 scripts/    command-line entry points
+ros2_ws/    ROS 2 package rvp_ros: nodes, launch file, generated world
 src/robust_visual_perception/   core package (no ROS dependency)
-tests/      pytest unit tests
+tests/      pytest unit tests (no ROS needed)
 ```
 
 ## Scope and limits

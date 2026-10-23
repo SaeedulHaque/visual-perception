@@ -62,6 +62,42 @@ specific to how the experiments were run.
   seconds; the filter works in frames, so the same setting means a longer
   delay in seconds on the 14 fps sequence.
 
+## Simulation (Phase 3)
+
+- **A clean, easy scene.** One person, one animated mesh, flat ground,
+  even lighting, no occlusion, no other people, and a camera whose images
+  barely change between frames. The detector finds this person reliably,
+  so the per-frame signal rarely flickers. The simulation shows that the
+  pipeline works on a robot camera and how it behaves under load; it says
+  little about how the filter copes with a hard scene. The MOT17 results
+  are the evidence for that.
+- **Sim-to-real gap.** A rendered person is not a real one. The detector
+  was trained on photographs, and its behaviour on real robot images
+  (motion blur, exposure changes, cluttered backgrounds) is not measured
+  here.
+- **Few events.** Four near crossings per static run and two per scripted
+  run. Onset delays rest on very few events per run, and differences of a
+  frame or two (33 ms each) are within the measurement's resolution.
+- **GT person volume.** The person is a cylinder whose height and width
+  were measured from silhouettes on one crossing. Swinging arms and legs
+  make the real silhouette wider or narrower from frame to frame; GT-STOP
+  depends only on the box centre and height, which the cylinder fits well.
+- **Path, not pose, for the person.** The person's GT position comes from
+  the scripted loop, not from the simulator (which does not publish it).
+  It relies on Gazebo following the dense waypoints closely, which the
+  GT check (IoU with detections) supports but does not prove to the
+  centimetre.
+- **A loaded machine.** Gazebo, the bridge, the recorder and the node share
+  the laptop's CPU. Inference in the node is slower than in the idle
+  offline runs, and the node skips frames when a callback takes longer than
+  the 33 ms frame interval. Live metrics are on the frames the node
+  processed; the replay covers every frame.
+- **Two clocks.** The image's age is measured on the sim clock, processing
+  on the wall clock. With a real-time factor near 1 their sum approximates
+  the delay to the published state, but it is not one measured interval.
+- **Teleop demo.** The keyboard run is a single, non-repeatable
+  demonstration and is not part of the repeated results.
+
 ## General
 
 - One model (YOLO26n), one run per configuration, no confidence intervals.
